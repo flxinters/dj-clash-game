@@ -281,7 +281,7 @@
 <body>
 
   <h1>DJ TRANSITION CLASH</h1>
-  <p class="subtitle">PRO AUDIO PIPELINE • REKORDBOX BEATGRID ENGINE</p>
+  <p class="subtitle">PRO AUDIO PIPELINE • QUANTIZED BEATGRID ENGINE</p>
 
   <div class="dj-console">
     <div class="decks">
@@ -374,26 +374,28 @@
     let wsA, wsB;
     let eqA, eqB, volA, volB, trimNodeA, trimNodeB, crossFade;
     let transitionStart = 0, transitionEnd = 0;
+
+    // Quantized Beatgrid Offsets (Adjusted to exact first-kick transients)
     const bpmA = 128, bpmB = 128;
+    const beatOffsetA = 0.08; // Offset in seconds to align grid line 1 with kick A
+    const beatOffsetB = 0.12; // Offset in seconds to align grid line 1 with kick B
 
     function setupToneNodes() {
       crossFade = new Tone.CrossFade(0).toDestination();
 
-      // Deck A Signal Chain: EQ -> Trim/Gain -> Volume -> Crossfader A
       eqA = new Tone.EQ3(0, 0, 0);
       trimNodeA = new Tone.Volume(0);
       volA = new Tone.Volume(0);
       eqA.chain(trimNodeA, volA, crossFade.a);
 
-      // Deck B Signal Chain: EQ -> Trim/Gain (+3.5dB Default Offset) -> Volume -> Crossfader B
       eqB = new Tone.EQ3(0, 0, 0);
       trimNodeB = new Tone.Volume(3.5);
       volB = new Tone.Volume(0);
       eqB.chain(trimNodeB, volB, crossFade.b);
     }
 
-    // Rekordbox Beatgrid Renderer Overlay
-    function drawBeatgrid(canvasId, wsInstance, bpm) {
+    // Quantized Beatgrid Renderer Engine
+    function drawBeatgrid(canvasId, wsInstance, bpm, firstBeatOffset) {
       const canvas = document.getElementById(canvasId);
       if (!canvas || !wsInstance) return;
       const ctx = canvas.getContext('2d');
@@ -413,23 +415,33 @@
       const startTime = currentTime - (windowDuration / 2);
       const endTime = currentTime + (windowDuration / 2);
 
-      const startBeat = Math.floor(startTime / secPerBeat);
-      const endBeat = Math.ceil(endTime / secPerBeat);
+      // Quantize beats relative to first beat offset
+      const startBeat = Math.floor((startTime - firstBeatOffset) / secPerBeat);
+      const endBeat = Math.ceil((endTime - firstBeatOffset) / secPerBeat);
 
       for (let b = startBeat; b <= endBeat; b++) {
-        const beatTime = b * secPerBeat;
+        const beatTime = firstBeatOffset + (b * secPerBeat);
         const x = (beatTime - startTime) * minPxPerSec;
 
         if (x >= 0 && x <= width) {
-          ctx.fillStyle = (b % 4 === 0) ? "rgba(0, 242, 254, 0.7)" : "rgba(255, 255, 255, 0.25)";
-          ctx.fillRect(x, 0, (b % 4 === 0) ? 2 : 1, height);
+          // Downbeat (Bar 1) Cyan marker vs Quarter Beat white markers
+          const isDownbeat = (b % 4 === 0);
+          ctx.fillStyle = isDownbeat ? "rgba(0, 242, 254, 0.85)" : "rgba(255, 255, 255, 0.25)";
+          ctx.fillRect(x, 0, isDownbeat ? 2 : 1, height);
+
+          // Render Rekordbox-style beat numbers above downbeats
+          if (isDownbeat && b >= 0) {
+            ctx.font = "9px monospace";
+            ctx.fillStyle = "rgba(0, 242, 254, 0.9)";
+            ctx.fillText(Math.floor(b / 4) + 1, x + 3, 12);
+          }
         }
       }
     }
 
     function renderLoop() {
-      if (wsA) drawBeatgrid('gridA', wsA, bpmA);
-      if (wsB) drawBeatgrid('gridB', wsB, bpmB);
+      if (wsA) drawBeatgrid('gridA', wsA, bpmA, beatOffsetA);
+      if (wsB) drawBeatgrid('gridB', wsB, bpmB, beatOffsetB);
       requestAnimationFrame(renderLoop);
     }
 
@@ -448,7 +460,7 @@
         autoScroll: true,
         autoCenter: true,
         hideScrollbar: true,
-        normalize: true // Auto-scale visual peaks
+        normalize: true
       };
 
       wsA = WaveSurfer.create({ ...config, container: '#waveA', url: TEST_TRACK_A });
