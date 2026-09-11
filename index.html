@@ -3,7 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <title>DJ TRANSITION CLASH - PRO CONSOLE</title>
+  <!-- Tone.js for Audio Engine & EQ -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+  <!-- Wavesurfer.js for Industry-Standard Accurate Waveforms -->
+  <script src="https://unpkg.com/wavesurfer.js@7"></script>
   <style>
     :root {
       --bg-color: #0a0a0c;
@@ -90,7 +93,7 @@
       border: 1px solid var(--border);
     }
 
-    /* Expanded Waveform Screen */
+    /* Wavesurfer Screen Container */
     .waveform-card {
       width: 100%;
       height: 100px;
@@ -98,25 +101,7 @@
       border: 1px solid var(--border);
       border-radius: 6px;
       margin-bottom: 12px;
-      position: relative;
       overflow: hidden;
-    }
-
-    canvas {
-      width: 100%;
-      height: 100%;
-      display: block;
-    }
-
-    .playhead {
-      position: absolute;
-      top: 0;
-      left: 50%;
-      width: 2px;
-      height: 100%;
-      background-color: var(--text-main);
-      box-shadow: 0 0 8px var(--cyan);
-      z-index: 10;
     }
 
     .file-btn-wrapper {
@@ -153,7 +138,7 @@
       cursor: pointer;
     }
 
-    /* Transport Controls Section */
+    /* Transport Controls */
     .transport-bar {
       display: flex;
       gap: 12px;
@@ -350,7 +335,7 @@
 <body>
 
   <h1>DJ TRANSITION CLASH</h1>
-  <p class="subtitle">PRO CONSOLE • HOTKEYS: DECK A VOL [Q/W] | DECK B VOL [O/P]</p>
+  <p class="subtitle">PRO CONSOLE • ACCURATE WAVESURFER ENGINE</p>
 
   <div class="dj-console">
     <div class="decks">
@@ -362,8 +347,7 @@
           <span id="bpmA" class="bpm-badge">-- BPM</span>
         </div>
         <div class="waveform-card">
-          <div class="playhead"></div>
-          <canvas id="waveA"></canvas>
+          <div id="waveA"></div>
         </div>
         
         <div class="file-btn-wrapper">
@@ -403,8 +387,7 @@
           <span id="bpmB" class="bpm-badge">-- BPM</span>
         </div>
         <div class="waveform-card">
-          <div class="playhead"></div>
-          <canvas id="waveB"></canvas>
+          <div id="waveB"></div>
         </div>
 
         <div class="file-btn-wrapper">
@@ -460,7 +443,7 @@
     </div>
   </div>
 
-  <!-- START TIMESTAMP SELECTOR MODAL -->
+  <!-- CUE POINT MODAL -->
   <div id="cueModal" class="modal-overlay">
     <div class="modal-card">
       <h3 style="margin-top:0; color: var(--cyan);">SELECT START CUE POINT</h3>
@@ -472,108 +455,42 @@
   </div>
 
   <script>
-    let playerA, playerB, eqA, eqB, volA, volB, crossFade;
+    let wsA = null, wsB = null;
+    let eqA, eqB, volA, volB, crossFade;
     let transitionStart = 0, transitionEnd = 0;
     let pendingFile = null, pendingIsDeckA = false;
-    let startCueA = 0, startCueB = 0;
-    let pausePositionA = 0, pausePositionB = 0;
-    let playStartTimeA = 0, playStartTimeB = 0;
-    let estimatedBpmA = 128, estimatedBpmB = 128;
+    let cueTimeA = 0, cueTimeB = 0;
 
     function getCrossFade() {
       if (!crossFade) crossFade = new Tone.CrossFade(0).toDestination();
       return crossFade;
     }
 
-    // Smoothed Waveform Engine with Rekordbox Beatgrid Lines
-    function renderMovingWaveform(canvasId, player, cueOffset, playStartTime, pausePos, bpm) {
-      const canvas = document.getElementById(canvasId);
-      if (!canvas) return;
-      const ctx = canvas.getContext('2d');
+    // Initialize Wavesurfer Instances
+    function initWavesurfer() {
+      wsA = WaveSurfer.create({
+        container: '#waveA',
+        waveColor: '#1e1e28',
+        progressColor: '#00f2fe',
+        cursorColor: '#ffffff',
+        barWidth: 2,
+        barRadius: 2,
+        height: 100,
+        responsive: true
+      });
 
-      if (canvas.width !== canvas.offsetWidth) canvas.width = canvas.offsetWidth || 380;
-      if (canvas.height !== canvas.offsetHeight) canvas.height = canvas.offsetHeight || 100;
-
-      const width = canvas.width;
-      const height = canvas.height;
-      const amp = height / 2;
-
-      ctx.clearRect(0, 0, width, height);
-
-      if (!player || !player.buffer || !player.buffer.loaded) return;
-
-      const buffer = player.buffer;
-      const rawData = buffer.getChannelData(0);
-      const sampleRate = buffer.sampleRate;
-
-      // Determine active playback position
-      let currentTime = pausePos > 0 ? pausePos : cueOffset;
-      if (player.state === "started" && playStartTime > 0) {
-        const elapsed = (performance.now() - playStartTime) / 1000;
-        currentTime = (pausePos > 0 ? pausePos : cueOffset) + elapsed;
-      }
-
-      const windowDuration = 3.0; // 3-second visible window
-      const centerSample = Math.floor(currentTime * sampleRate);
-      const halfWindowSamples = Math.floor((windowDuration / 2) * sampleRate);
-      const startSample = centerSample - halfWindowSamples;
-      const totalWindowSamples = halfWindowSamples * 2;
-
-      // 1. Draw Beatgrid Lines
-      const secondsPerBeat = 60 / bpm;
-      const windowStartTime = currentTime - (windowDuration / 2);
-      const windowEndTime = currentTime + (windowDuration / 2);
-
-      const firstBeatIndex = Math.ceil(windowStartTime / secondsPerBeat);
-      const lastBeatIndex = Math.floor(windowEndTime / secondsPerBeat);
-
-      ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
-      for (let b = firstBeatIndex; b <= lastBeatIndex; b++) {
-        const beatTime = b * secondsPerBeat;
-        const beatX = ((beatTime - windowStartTime) / windowDuration) * width;
-        ctx.fillRect(beatX, 0, 1.5, height);
-      }
-
-      // 2. Draw Smoothed Discrete Waveform Bars
-      const numBars = 75; // Discrete rounded bars across the screen
-      const barWidth = width / numBars;
-      const samplesPerBar = Math.floor(totalWindowSamples / numBars);
-
-      ctx.fillStyle = "#00f2fe";
-
-      for (let i = 0; i < numBars; i++) {
-        const barStartSample = Math.floor(startSample + (i * samplesPerBar));
-        
-        if (barStartSample >= 0 && barStartSample < rawData.length) {
-          let sum = 0;
-          let count = 0;
-          
-          for (let s = 0; s < samplesPerBar; s += 4) {
-            if (barStartSample + s < rawData.length) {
-              sum += Math.abs(rawData[barStartSample + s]);
-              count++;
-            }
-          }
-          
-          const avg = count > 0 ? sum / count : 0;
-          const barHeight = Math.max(3, avg * amp * 2.2);
-          const x = i * barWidth;
-          
-          // Draw bar with slight margin
-          ctx.beginPath();
-          ctx.roundRect(x + 1, amp - (barHeight / 2), barWidth - 2, barHeight, 2);
-          ctx.fill();
-        }
-      }
+      wsB = WaveSurfer.create({
+        container: '#waveB',
+        waveColor: '#1e1e28',
+        progressColor: '#00f2fe',
+        cursorColor: '#ffffff',
+        barWidth: 2,
+        barRadius: 2,
+        height: 100,
+        responsive: true
+      });
     }
-
-    // Animation Loop
-    function drawLoop() {
-      renderMovingWaveform('waveA', playerA, startCueA, playStartTimeA, pausePositionA, estimatedBpmA);
-      renderMovingWaveform('waveB', playerB, startCueB, playStartTimeB, pausePositionB, estimatedBpmB);
-      requestAnimationFrame(drawLoop);
-    }
-    requestAnimationFrame(drawLoop);
+    initWavesurfer();
 
     // BPM Calculation
     function estimateBPM(buffer) {
@@ -592,11 +509,10 @@
       return Math.round(bpm);
     }
 
-    // Modal Logic
+    // Cue Modal
     function openCueModal(file, isDeckA) {
       pendingFile = file;
       pendingIsDeckA = isDeckA;
-      
       const url = URL.createObjectURL(file);
       const tempPlayer = new Tone.Player(url, () => {
         const scrubber = document.getElementById('cueScrubber');
@@ -619,18 +535,25 @@
       document.getElementById('cueModal').style.display = 'none';
 
       const isA = pendingIsDeckA;
+      const ws = isA ? wsA : wsB;
       const playBtn = document.getElementById(isA ? 'playA' : 'playB');
       const cueBtn = document.getElementById(isA ? 'cueA' : 'cueB');
       const fileLabel = document.getElementById(isA ? 'fileBtnA' : 'fileBtnB');
-      
-      fileLabel.innerText = pendingFile.name.substring(0, 18) + "...";
-      playBtn.disabled = true;
-      cueBtn.disabled = true;
 
+      fileLabel.innerText = pendingFile.name.substring(0, 18) + "...";
       const url = URL.createObjectURL(pendingFile);
+
+      // Load Wavesurfer Accurate Visuals
+      ws.load(url);
+      ws.on('ready', () => {
+        ws.setTime(startTime);
+        playBtn.disabled = false;
+        cueBtn.disabled = false;
+      });
+
+      // Load Tone.js Audio Node
       const eq = new Tone.EQ3(0, 0, 0);
       const vol = new Tone.Volume(0);
-
       const player = new Tone.Player({
         url: url,
         loop: true,
@@ -638,74 +561,50 @@
           player.chain(eq, vol, isA ? getCrossFade().a : getCrossFade().b);
           const bpm = estimateBPM(player.buffer);
           document.getElementById(isA ? 'bpmA' : 'bpmB').innerText = `${bpm} BPM`;
-          
-          if (isA) estimatedBpmA = bpm;
-          else estimatedBpmB = bpm;
-
-          playBtn.disabled = false;
-          cueBtn.disabled = false;
         }
       });
 
-      if (isA) { playerA = player; eqA = eq; volA = vol; startCueA = startTime; pausePositionA = 0; playStartTimeA = 0; }
-      else { playerB = player; eqB = eq; volB = vol; startCueB = startTime; pausePositionB = 0; playStartTimeB = 0; }
+      if (isA) { eqA = eq; volA = vol; cueTimeA = startTime; }
+      else { eqB = eq; volB = vol; cueTimeB = startTime; }
     });
 
     // File Input Handlers
     document.getElementById('fileA').addEventListener('change', (e) => { if (e.target.files[0]) openCueModal(e.target.files[0], true); });
     document.getElementById('fileB').addEventListener('change', (e) => { if (e.target.files[0]) openCueModal(e.target.files[0], false); });
 
-    // CUE Button - Resets to Cue Point
+    // CUE Buttons
     document.getElementById('cueA').addEventListener('click', () => {
-      if (!playerA) return;
-      if (playerA.state === "started") playerA.stop();
-      playStartTimeA = 0;
-      pausePositionA = 0;
+      wsA.pause();
+      wsA.setTime(cueTimeA);
       document.getElementById('playA').innerHTML = "&#9654;";
     });
 
     document.getElementById('cueB').addEventListener('click', () => {
-      if (!playerB) return;
-      if (playerB.state === "started") playerB.stop();
-      playStartTimeB = 0;
-      pausePositionB = 0;
+      wsB.pause();
+      wsB.setTime(cueTimeB);
       document.getElementById('playB').innerHTML = "&#9654;";
     });
 
-    // PLAY/PAUSE Buttons - Retains Current Position
+    // PLAY/PAUSE Buttons
     document.getElementById('playA').addEventListener('click', async () => {
       await Tone.start();
-      if (!playerA) return;
-
-      if (playerA.state === "started") { 
-        const elapsed = (performance.now() - playStartTimeA) / 1000;
-        pausePositionA = (pausePositionA > 0 ? pausePositionA : startCueA) + elapsed;
-        playerA.stop(); 
-        playStartTimeA = 0;
-        document.getElementById('playA').innerHTML = "&#9654;"; 
-      } else { 
-        playStartTimeA = performance.now();
-        const startFrom = pausePositionA > 0 ? pausePositionA : startCueA;
-        playerA.start(undefined, startFrom); 
-        document.getElementById('playA').innerHTML = "&#10074;&#10074;"; 
+      if (wsA.isPlaying()) {
+        wsA.pause();
+        document.getElementById('playA').innerHTML = "&#9654;";
+      } else {
+        wsA.play();
+        document.getElementById('playA').innerHTML = "&#10074;&#10074;";
       }
     });
 
     document.getElementById('playB').addEventListener('click', async () => {
       await Tone.start();
-      if (!playerB) return;
-
-      if (playerB.state === "started") { 
-        const elapsed = (performance.now() - playStartTimeB) / 1000;
-        pausePositionB = (pausePositionB > 0 ? pausePositionB : startCueB) + elapsed;
-        playerB.stop(); 
-        playStartTimeB = 0;
-        document.getElementById('playB').innerHTML = "&#9654;"; 
-      } else { 
-        playStartTimeB = performance.now();
-        const startFrom = pausePositionB > 0 ? pausePositionB : startCueB;
-        playerB.start(undefined, startFrom); 
-        document.getElementById('playB').innerHTML = "&#10074;&#10074;"; 
+      if (wsB.isPlaying()) {
+        wsB.pause();
+        document.getElementById('playB').innerHTML = "&#9654;";
+      } else {
+        wsB.play();
+        document.getElementById('playB').innerHTML = "&#10074;&#10074;";
       }
     });
 
@@ -733,8 +632,17 @@
     });
 
     // Mixer Listeners
-    document.getElementById('volA').addEventListener('input', (e) => { if (volA) volA.volume.value = Tone.gainToDb(parseFloat(e.target.value)); });
-    document.getElementById('volB').addEventListener('input', (e) => { if (volB) volB.volume.value = Tone.gainToDb(parseFloat(e.target.value)); });
+    document.getElementById('volA').addEventListener('input', (e) => { 
+      const val = parseFloat(e.target.value);
+      if (wsA) wsA.setVolume(val);
+      if (volA) volA.volume.value = Tone.gainToDb(val); 
+    });
+
+    document.getElementById('volB').addEventListener('input', (e) => { 
+      const val = parseFloat(e.target.value);
+      if (wsB) wsB.setVolume(val);
+      if (volB) volB.volume.value = Tone.gainToDb(val); 
+    });
 
     document.getElementById('highA').addEventListener('input', (e) => { if (eqA) eqA.high.value = parseFloat(e.target.value); });
     document.getElementById('midA').addEventListener('input', (e) => { if (eqA) eqA.mid.value = parseFloat(e.target.value); });
