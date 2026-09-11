@@ -3,7 +3,6 @@
 <head>
   <meta charset="UTF-8">
   <title>DJ Transition Clash - Prototype</title>
-  <!-- Load Tone.js Audio Framework -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
   <style>
     body {
@@ -121,7 +120,7 @@
 <body>
 
   <h1>DJ TRANSITION CLASH</h1>
-  <p class="subtitle">Upload your own MP3s or press Play to use default loops.<br>Execute a smooth 3–6 second transition from Deck A to Deck B!</p>
+  <p class="subtitle">Upload your MP3s, wait for them to load, then execute your transition!</p>
 
   <div class="dj-booth">
     <div class="decks">
@@ -165,54 +164,83 @@
   </div>
 
   <script>
-    let playerA, playerB, crossFade;
+    let playerA = null;
+    let playerB = null;
+    let crossFade = null;
     let transitionStartTime = 0;
     let transitionEndTime = 0;
 
-    // Default backup audio streams
-    const defaultUrlA = "https://tonejs.github.io/audio/drum-samples/breakbeat.mp3";
-    const defaultUrlB = "https://tonejs.github.io/audio/drum-samples/CR78/hihat.mp3";
-
-    function initEngine() {
+    function getCrossFade() {
       if (!crossFade) {
         crossFade = new Tone.CrossFade(0).toDestination();
       }
-      if (!playerA) {
-        playerA = new Tone.Player({ url: defaultUrlA, loop: true }).connect(crossFade.a);
-      }
-      if (!playerB) {
-        playerB = new Tone.Player({ url: defaultUrlB, loop: true }).connect(crossFade.b);
-      }
+      return crossFade;
     }
 
-    // Custom MP3 Upload Handler - Deck A
+    // Load Deck A MP3 Safely
     document.getElementById('fileA').addEventListener('change', (e) => {
       const file = e.target.files[0];
-      if (file) {
-        initEngine();
-        const url = URL.createObjectURL(file);
-        if (playerA) playerA.dispose();
-        playerA = new Tone.Player({ url: url, loop: true }).connect(crossFade.a);
-        document.getElementById('playA').innerText = "Play Deck A";
-      }
+      if (!file) return;
+
+      const btnA = document.getElementById('playA');
+      btnA.innerText = "Loading MP3...";
+      btnA.disabled = true;
+
+      const url = URL.createObjectURL(file);
+      if (playerA) playerA.dispose();
+
+      playerA = new Tone.Player({
+        url: url,
+        loop: true,
+        onload: () => {
+          playerA.connect(getCrossFade().a);
+          btnA.innerText = "Play Deck A";
+          btnA.disabled = false;
+        },
+        onerror: (err) => {
+          alert("Error loading audio file on Deck A.");
+          btnA.innerText = "Play Deck A";
+          btnA.disabled = false;
+        }
+      });
     });
 
-    // Custom MP3 Upload Handler - Deck B
+    // Load Deck B MP3 Safely
     document.getElementById('fileB').addEventListener('change', (e) => {
       const file = e.target.files[0];
-      if (file) {
-        initEngine();
-        const url = URL.createObjectURL(file);
-        if (playerB) playerB.dispose();
-        playerB = new Tone.Player({ url: url, loop: true }).connect(crossFade.b);
-        document.getElementById('playB').innerText = "Play Deck B";
-      }
+      if (!file) return;
+
+      const btnB = document.getElementById('playB');
+      btnB.innerText = "Loading MP3...";
+      btnB.disabled = true;
+
+      const url = URL.createObjectURL(file);
+      if (playerB) playerB.dispose();
+
+      playerB = new Tone.Player({
+        url: url,
+        loop: true,
+        onload: () => {
+          playerB.connect(getCrossFade().b);
+          btnB.innerText = "Play Deck B";
+          btnB.disabled = false;
+        },
+        onerror: (err) => {
+          alert("Error loading audio file on Deck B.");
+          btnB.innerText = "Play Deck B";
+          btnB.disabled = false;
+        }
+      });
     });
 
-    // Play/Stop Controls
+    // Play/Stop Control Deck A
     document.getElementById('playA').addEventListener('click', async () => {
       await Tone.start();
-      initEngine();
+      if (!playerA || !playerA.loaded) {
+        alert("Please choose an MP3 file for Deck A first!");
+        return;
+      }
+
       if (playerA.state === "started") {
         playerA.stop();
         document.getElementById('playA').innerText = "Play Deck A";
@@ -222,9 +250,14 @@
       }
     });
 
+    // Play/Stop Control Deck B
     document.getElementById('playB').addEventListener('click', async () => {
       await Tone.start();
-      initEngine();
+      if (!playerB || !playerB.loaded) {
+        alert("Please choose an MP3 file for Deck B first!");
+        return;
+      }
+
       if (playerB.state === "started") {
         playerB.stop();
         document.getElementById('playB').innerText = "Play Deck B";
@@ -234,7 +267,7 @@
       }
     });
 
-    // Crossfader Tracking
+    // Crossfader Logic
     const faderInput = document.getElementById('fader');
     faderInput.addEventListener('input', (e) => {
       const val = parseFloat(e.target.value);
