@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>DJ TRANSITION CLASH - PRO</title>
+  <title>DJ TRANSITION CLASH - PRO CONSOLE</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
   <style>
     :root {
@@ -46,7 +46,7 @@
       border: 1px solid var(--border);
       border-radius: 12px;
       padding: 24px;
-      width: 820px;
+      width: 880px;
       box-shadow: 0 20px 50px rgba(0,0,0,0.8);
     }
 
@@ -90,13 +90,13 @@
       border: 1px solid var(--border);
     }
 
-    /* Scrolling Waveform Viewport */
+    /* Expanded Waveform Screen */
     .waveform-card {
       width: 100%;
-      height: 70px;
+      height: 100px;
       background: #050507;
       border: 1px solid var(--border);
-      border-radius: 4px;
+      border-radius: 6px;
       margin-bottom: 12px;
       position: relative;
       overflow: hidden;
@@ -105,6 +105,7 @@
     canvas {
       width: 100%;
       height: 100%;
+      display: block;
     }
 
     .playhead {
@@ -114,11 +115,10 @@
       width: 2px;
       height: 100%;
       background-color: var(--text-main);
-      box-shadow: 0 0 6px var(--cyan);
+      box-shadow: 0 0 8px var(--cyan);
       z-index: 10;
     }
 
-    /* Custom File Input Styling */
     .file-btn-wrapper {
       position: relative;
       margin-bottom: 15px;
@@ -153,21 +153,49 @@
       cursor: pointer;
     }
 
-    /* Hardware Transport Play Button */
-    .play-btn {
-      width: 54px;
-      height: 54px;
+    /* Transport Controls Section */
+    .transport-bar {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .cue-btn {
+      width: 50px;
+      height: 50px;
       border-radius: 50%;
       background: #0d0d11;
-      border: 2px solid var(--cyan);
-      color: var(--cyan);
-      font-size: 1.2rem;
+      border: 2px solid #ff007f;
+      color: #ff007f;
+      font-size: 0.75rem;
+      font-weight: bold;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
       transition: all 0.2s ease;
-      margin-bottom: 15px;
+    }
+
+    .cue-btn:hover {
+      background: #ff007f;
+      color: #000;
+      box-shadow: 0 0 12px rgba(255, 0, 127, 0.4);
+    }
+
+    .play-btn {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background: #0d0d11;
+      border: 2px solid var(--cyan);
+      color: var(--cyan);
+      font-size: 1.1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
       box-shadow: 0 0 10px rgba(0,242,254,0.1);
     }
 
@@ -177,14 +205,13 @@
       box-shadow: 0 0 15px rgba(0,242,254,0.4);
     }
 
-    .play-btn:disabled {
-      border-color: var(--border);
-      color: var(--text-muted);
-      box-shadow: none;
+    .transport-bar button:disabled {
+      border-color: var(--border) !important;
+      color: var(--text-muted) !important;
+      box-shadow: none !important;
       cursor: not-allowed;
     }
 
-    /* Vertical Mixer Strip */
     .mixer-strip {
       display: flex;
       justify-content: space-around;
@@ -218,7 +245,6 @@
       cursor: pointer;
     }
 
-    /* Crossfader Panel */
     .crossfader-panel {
       margin-top: 20px;
       background: var(--panel-bg);
@@ -252,7 +278,6 @@
       margin-top: 6px;
     }
 
-    /* Action & Scoring */
     .actions {
       margin-top: 20px;
       text-align: center;
@@ -293,7 +318,6 @@
       margin-top: 8px;
     }
 
-    /* Start Cue-Point Selector Modal */
     .modal-overlay {
       position: fixed;
       top: 0;
@@ -347,7 +371,10 @@
           <input type="file" id="fileA" class="hidden-file-input" accept="audio/*">
         </div>
         
-        <button id="playA" class="play-btn" disabled>&#9654;</button>
+        <div class="transport-bar">
+          <button id="cueA" class="cue-btn" disabled>CUE</button>
+          <button id="playA" class="play-btn" disabled>&#9654;</button>
+        </div>
 
         <div class="mixer-strip">
           <div class="v-control">
@@ -385,7 +412,10 @@
           <input type="file" id="fileB" class="hidden-file-input" accept="audio/*">
         </div>
 
-        <button id="playB" class="play-btn" disabled>&#9654;</button>
+        <div class="transport-bar">
+          <button id="cueB" class="cue-btn" disabled>CUE</button>
+          <button id="playB" class="play-btn" disabled>&#9654;</button>
+        </div>
 
         <div class="mixer-strip">
           <div class="v-control">
@@ -442,27 +472,27 @@
   </div>
 
   <script>
-   let playerA, playerB, eqA, eqB, volA, volB, crossFade;
+    let playerA, playerB, eqA, eqB, volA, volB, crossFade;
     let transitionStart = 0, transitionEnd = 0;
     let pendingFile = null, pendingIsDeckA = false;
     let startCueA = 0, startCueB = 0;
-
-    // Track active playback start timestamps
+    let pausePositionA = 0, pausePositionB = 0;
     let playStartTimeA = 0, playStartTimeB = 0;
+    let estimatedBpmA = 128, estimatedBpmB = 128;
 
     function getCrossFade() {
       if (!crossFade) crossFade = new Tone.CrossFade(0).toDestination();
       return crossFade;
     }
 
-    // High-Precision Real-Time Waveform Viewport Engine
-    function renderMovingWaveform(canvasId, player, cueOffset, playStartTime) {
+    // Smoothed Waveform Engine with Rekordbox Beatgrid Lines
+    function renderMovingWaveform(canvasId, player, cueOffset, playStartTime, pausePos, bpm) {
       const canvas = document.getElementById(canvasId);
       if (!canvas) return;
       const ctx = canvas.getContext('2d');
 
-      if (canvas.width !== canvas.offsetWidth) canvas.width = canvas.offsetWidth || 350;
-      if (canvas.height !== canvas.offsetHeight) canvas.height = canvas.offsetHeight || 70;
+      if (canvas.width !== canvas.offsetWidth) canvas.width = canvas.offsetWidth || 380;
+      if (canvas.height !== canvas.offsetHeight) canvas.height = canvas.offsetHeight || 100;
 
       const width = canvas.width;
       const height = canvas.height;
@@ -476,44 +506,76 @@
       const rawData = buffer.getChannelData(0);
       const sampleRate = buffer.sampleRate;
 
-      // Calculate exact elapsed seconds since play was pressed
-      let currentTime = cueOffset;
+      // Determine active playback position
+      let currentTime = pausePos > 0 ? pausePos : cueOffset;
       if (player.state === "started" && playStartTime > 0) {
         const elapsed = (performance.now() - playStartTime) / 1000;
-        currentTime = (cueOffset + elapsed) % buffer.duration;
+        currentTime = (pausePos > 0 ? pausePos : cueOffset) + elapsed;
       }
 
-      // Display a 2.5 second zoomed-in window
-      const windowDuration = 2.5; 
+      const windowDuration = 3.0; // 3-second visible window
       const centerSample = Math.floor(currentTime * sampleRate);
       const halfWindowSamples = Math.floor((windowDuration / 2) * sampleRate);
-
       const startSample = centerSample - halfWindowSamples;
       const totalWindowSamples = halfWindowSamples * 2;
-      const step = totalWindowSamples / width;
+
+      // 1. Draw Beatgrid Lines
+      const secondsPerBeat = 60 / bpm;
+      const windowStartTime = currentTime - (windowDuration / 2);
+      const windowEndTime = currentTime + (windowDuration / 2);
+
+      const firstBeatIndex = Math.ceil(windowStartTime / secondsPerBeat);
+      const lastBeatIndex = Math.floor(windowEndTime / secondsPerBeat);
+
+      ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
+      for (let b = firstBeatIndex; b <= lastBeatIndex; b++) {
+        const beatTime = b * secondsPerBeat;
+        const beatX = ((beatTime - windowStartTime) / windowDuration) * width;
+        ctx.fillRect(beatX, 0, 1.5, height);
+      }
+
+      // 2. Draw Smoothed Discrete Waveform Bars
+      const numBars = 75; // Discrete rounded bars across the screen
+      const barWidth = width / numBars;
+      const samplesPerBar = Math.floor(totalWindowSamples / numBars);
 
       ctx.fillStyle = "#00f2fe";
 
-      for (let i = 0; i < width; i++) {
-        const sampleIndex = Math.floor(startSample + (i * step));
-
-        if (sampleIndex >= 0 && sampleIndex < rawData.length) {
-          const sampleVal = rawData[sampleIndex];
-          const barHeight = Math.max(2, Math.abs(sampleVal * amp * 1.8));
-          ctx.fillRect(i, amp - (barHeight / 2), 1, barHeight);
+      for (let i = 0; i < numBars; i++) {
+        const barStartSample = Math.floor(startSample + (i * samplesPerBar));
+        
+        if (barStartSample >= 0 && barStartSample < rawData.length) {
+          let sum = 0;
+          let count = 0;
+          
+          for (let s = 0; s < samplesPerBar; s += 4) {
+            if (barStartSample + s < rawData.length) {
+              sum += Math.abs(rawData[barStartSample + s]);
+              count++;
+            }
+          }
+          
+          const avg = count > 0 ? sum / count : 0;
+          const barHeight = Math.max(3, avg * amp * 2.2);
+          const x = i * barWidth;
+          
+          // Draw bar with slight margin
+          ctx.beginPath();
+          ctx.roundRect(x + 1, amp - (barHeight / 2), barWidth - 2, barHeight, 2);
+          ctx.fill();
         }
       }
     }
 
-    // 60 FPS Render Loop
+    // Animation Loop
     function drawLoop() {
-      renderMovingWaveform('waveA', playerA, startCueA, playStartTimeA);
-      renderMovingWaveform('waveB', playerB, startCueB, playStartTimeB);
+      renderMovingWaveform('waveA', playerA, startCueA, playStartTimeA, pausePositionA, estimatedBpmA);
+      renderMovingWaveform('waveB', playerB, startCueB, playStartTimeB, pausePositionB, estimatedBpmB);
       requestAnimationFrame(drawLoop);
     }
     requestAnimationFrame(drawLoop);
 
-    // BPM Estimator
+    // BPM Calculation
     function estimateBPM(buffer) {
       const rate = buffer.sampleRate;
       const data = buffer.getChannelData(0);
@@ -530,7 +592,7 @@
       return Math.round(bpm);
     }
 
-    // Cue Point Selector Modal
+    // Modal Logic
     function openCueModal(file, isDeckA) {
       pendingFile = file;
       pendingIsDeckA = isDeckA;
@@ -557,11 +619,13 @@
       document.getElementById('cueModal').style.display = 'none';
 
       const isA = pendingIsDeckA;
-      const btn = document.getElementById(isA ? 'playA' : 'playB');
+      const playBtn = document.getElementById(isA ? 'playA' : 'playB');
+      const cueBtn = document.getElementById(isA ? 'cueA' : 'cueB');
       const fileLabel = document.getElementById(isA ? 'fileBtnA' : 'fileBtnB');
       
       fileLabel.innerText = pendingFile.name.substring(0, 18) + "...";
-      btn.disabled = true;
+      playBtn.disabled = true;
+      cueBtn.disabled = true;
 
       const url = URL.createObjectURL(pendingFile);
       const eq = new Tone.EQ3(0, 0, 0);
@@ -572,47 +636,80 @@
         loop: true,
         onload: () => {
           player.chain(eq, vol, isA ? getCrossFade().a : getCrossFade().b);
-          document.getElementById(isA ? 'bpmA' : 'bpmB').innerText = `${estimateBPM(player.buffer)} BPM`;
-          btn.disabled = false;
+          const bpm = estimateBPM(player.buffer);
+          document.getElementById(isA ? 'bpmA' : 'bpmB').innerText = `${bpm} BPM`;
+          
+          if (isA) estimatedBpmA = bpm;
+          else estimatedBpmB = bpm;
+
+          playBtn.disabled = false;
+          cueBtn.disabled = false;
         }
       });
 
-      if (isA) { playerA = player; eqA = eq; volA = vol; startCueA = startTime; playStartTimeA = 0; }
-      else { playerB = player; eqB = eq; volB = vol; startCueB = startTime; playStartTimeB = 0; }
+      if (isA) { playerA = player; eqA = eq; volA = vol; startCueA = startTime; pausePositionA = 0; playStartTimeA = 0; }
+      else { playerB = player; eqB = eq; volB = vol; startCueB = startTime; pausePositionB = 0; playStartTimeB = 0; }
     });
 
     // File Input Handlers
     document.getElementById('fileA').addEventListener('change', (e) => { if (e.target.files[0]) openCueModal(e.target.files[0], true); });
     document.getElementById('fileB').addEventListener('change', (e) => { if (e.target.files[0]) openCueModal(e.target.files[0], false); });
 
-    // Transport Play Buttons
+    // CUE Button - Resets to Cue Point
+    document.getElementById('cueA').addEventListener('click', () => {
+      if (!playerA) return;
+      if (playerA.state === "started") playerA.stop();
+      playStartTimeA = 0;
+      pausePositionA = 0;
+      document.getElementById('playA').innerHTML = "&#9654;";
+    });
+
+    document.getElementById('cueB').addEventListener('click', () => {
+      if (!playerB) return;
+      if (playerB.state === "started") playerB.stop();
+      playStartTimeB = 0;
+      pausePositionB = 0;
+      document.getElementById('playB').innerHTML = "&#9654;";
+    });
+
+    // PLAY/PAUSE Buttons - Retains Current Position
     document.getElementById('playA').addEventListener('click', async () => {
       await Tone.start();
+      if (!playerA) return;
+
       if (playerA.state === "started") { 
+        const elapsed = (performance.now() - playStartTimeA) / 1000;
+        pausePositionA = (pausePositionA > 0 ? pausePositionA : startCueA) + elapsed;
         playerA.stop(); 
         playStartTimeA = 0;
         document.getElementById('playA').innerHTML = "&#9654;"; 
       } else { 
         playStartTimeA = performance.now();
-        playerA.start(undefined, startCueA); 
+        const startFrom = pausePositionA > 0 ? pausePositionA : startCueA;
+        playerA.start(undefined, startFrom); 
         document.getElementById('playA').innerHTML = "&#10074;&#10074;"; 
       }
     });
 
     document.getElementById('playB').addEventListener('click', async () => {
       await Tone.start();
+      if (!playerB) return;
+
       if (playerB.state === "started") { 
+        const elapsed = (performance.now() - playStartTimeB) / 1000;
+        pausePositionB = (pausePositionB > 0 ? pausePositionB : startCueB) + elapsed;
         playerB.stop(); 
         playStartTimeB = 0;
         document.getElementById('playB').innerHTML = "&#9654;"; 
       } else { 
         playStartTimeB = performance.now();
-        playerB.start(undefined, startCueB); 
+        const startFrom = pausePositionB > 0 ? pausePositionB : startCueB;
+        playerB.start(undefined, startFrom); 
         document.getElementById('playB').innerHTML = "&#10074;&#10074;"; 
       }
     });
 
-    // Keyboard Volume Hotkeys
+    // Volume Hotkeys
     window.addEventListener('keydown', (e) => {
       const volSliderA = document.getElementById('volA');
       const volSliderB = document.getElementById('volB');
