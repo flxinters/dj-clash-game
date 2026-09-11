@@ -444,7 +444,7 @@
   <script>
     let playerA, playerB, eqA, eqB, volA, volB, crossFade;
     let transitionStart = 0, transitionEnd = 0;
-    let pendingFile = null, pendingIsDeckA = false, pendingBuffer = null;
+    let pendingFile = null, pendingIsDeckA = false;
     let startCueA = 0, startCueB = 0;
 
     function getCrossFade() {
@@ -452,45 +452,35 @@
       return crossFade;
     }
 
-    // Live Scrolling Waveform Engine
-    function renderMovingWaveform(canvasId, buffer, currentTime) {
+    // Direct Waveform Generator
+    function drawWaveform(canvasId, buffer) {
       const canvas = document.getElementById(canvasId);
+      if (!canvas || !buffer) return;
       const ctx = canvas.getContext('2d');
-      const width = canvas.width = canvas.offsetWidth;
-      const height = canvas.height = canvas.offsetHeight;
-      if (!buffer) return;
 
-      const data = buffer.getChannelData(0);
-      const duration = buffer.duration;
-      const progress = currentTime / duration;
-      const centerIndex = Math.floor(progress * data.length);
+      canvas.width = canvas.offsetWidth || 350;
+      canvas.height = canvas.offsetHeight || 70;
 
-      const visibleSamples = Math.floor(buffer.sampleRate * 4); // Show 4 seconds window
-      const startIndex = centerIndex - Math.floor(visibleSamples / 2);
+      const rawData = buffer.getChannelData(0);
+      const step = Math.ceil(rawData.length / canvas.width);
+      const amp = canvas.height / 2;
 
-      ctx.clearRect(0, 0, width, height);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.fillStyle = "#00f2fe";
 
-      const step = Math.ceil(visibleSamples / width);
-      const amp = height / 2;
-
-      for (let i = 0; i < width; i++) {
-        const samplePos = startIndex + (i * step);
-        if (samplePos >= 0 && samplePos < data.length) {
-          const datum = data[samplePos];
-          ctx.fillRect(i, amp - (datum * amp), 1, Math.max(1, Math.abs(datum * amp * 2)));
+      for (let i = 0; i < canvas.width; i++) {
+        let min = 1.0, max = -1.0;
+        for (let j = 0; j < step; j++) {
+          const datum = rawData[(i * step) + j];
+          if (datum < min) min = datum;
+          if (datum > max) max = datum;
         }
+        const height = Math.max(2, (max - min) * amp);
+        ctx.fillRect(i, amp - (height / 2), 1, height);
       }
     }
 
-    function animateWaveforms() {
-      if (playerA && playerA.state === "started") renderMovingWaveform('waveA', playerA.buffer, playerA.seek());
-      if (playerB && playerB.state === "started") renderMovingWaveform('waveB', playerB.buffer, playerB.seek());
-      requestAnimationFrame(animateWaveforms);
-    }
-    requestAnimationFrame(animateWaveforms);
-
-    // BPM Calculation
+    // BPM Estimator
     function estimateBPM(buffer) {
       const rate = buffer.sampleRate;
       const data = buffer.getChannelData(0);
@@ -498,7 +488,7 @@
       for (let i = 0; i < Math.min(data.length, rate * 10); i += Math.floor(rate / 100)) {
         if (Math.abs(data[i]) > 0.45) peaks.push(i);
       }
-      if (peaks.length < 2) return 124;
+      if (peaks.length < 2) return 128;
       let intervals = [];
       for (let i = 1; i < peaks.length; i++) intervals.push(peaks[i] - peaks[i - 1]);
       let bpm = Math.round((rate / (intervals.reduce((a, b) => a + b) / intervals.length)) * 0.6);
@@ -507,16 +497,15 @@
       return Math.round(bpm);
     }
 
-    // Modal & Cue Point Logic
+    // File Selector Modal
     function openCueModal(file, isDeckA) {
       pendingFile = file;
       pendingIsDeckA = isDeckA;
       
       const url = URL.createObjectURL(file);
       const tempPlayer = new Tone.Player(url, () => {
-        pendingBuffer = tempPlayer.buffer;
         const scrubber = document.getElementById('cueScrubber');
-        scrubber.max = Math.floor(pendingBuffer.duration);
+        scrubber.max = Math.floor(tempPlayer.buffer.duration);
         scrubber.value = 0;
         document.getElementById('cueTimeDisplay').innerText = "00:00";
         document.getElementById('cueModal').style.display = 'flex';
@@ -551,6 +540,9 @@
         onload: () => {
           player.chain(eq, vol, isA ? getCrossFade().a : getCrossFade().b);
           document.getElementById(isA ? 'bpmA' : 'bpmB').innerText = `${estimateBPM(player.buffer)} BPM`;
+          
+          // Render waveform immediately
+          drawWaveform(isA ? 'waveA' : 'waveB', player.buffer);
           btn.disabled = false;
         }
       });
@@ -576,7 +568,7 @@
       else { playerB.start(undefined, startCueB); document.getElementById('playB').innerHTML = "&#10074;&#10074;"; }
     });
 
-    // Keyboard Hotkeys (Q/W for Deck A, O/P for Deck B Volume)
+    // Hotkeys
     window.addEventListener('keydown', (e) => {
       const volSliderA = document.getElementById('volA');
       const volSliderB = document.getElementById('volB');
@@ -599,7 +591,7 @@
       }
     });
 
-    // Mixer Controls
+    // Mixer Listeners
     document.getElementById('volA').addEventListener('input', (e) => { if (volA) volA.volume.value = Tone.gainToDb(parseFloat(e.target.value)); });
     document.getElementById('volB').addEventListener('input', (e) => { if (volB) volB.volume.value = Tone.gainToDb(parseFloat(e.target.value)); });
 
@@ -620,7 +612,7 @@
       if (val >= 0.95 && transitionStart !== 0 && transitionEnd === 0) transitionEnd = Date.now();
     });
 
-    // AI Transition Evaluator
+    // AI Evaluator
     document.getElementById('submitBtn').addEventListener('click', () => {
       let score = 100;
       let logs = [];
@@ -659,6 +651,7 @@
       document.getElementById('scoreHeader').innerText = `SCORE: ${score} / 100`;
       document.getElementById('scoreLog').innerHTML = logs.map(l => `<p style="margin: 3px 0;">${l}</p>`).join('');
     });
+      
   </script>
 </body>
 </html>
