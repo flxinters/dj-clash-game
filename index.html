@@ -17,6 +17,10 @@
       --border: #262630;
     }
 
+    * {
+      box-sizing: border-box;
+    }
+
     body {
       background-color: var(--bg-color);
       color: var(--text-main);
@@ -49,12 +53,15 @@
       border-radius: 12px;
       padding: 24px;
       width: 880px;
+      max-width: 95vw;
       box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+      overflow: hidden;
     }
 
     .decks {
       display: flex;
       gap: 20px;
+      width: 100%;
     }
 
     .deck {
@@ -62,6 +69,7 @@
       border-radius: 8px;
       padding: 16px;
       flex: 1;
+      min-width: 0; /* Prevents Flexbox children from blowing out container width */
       border: 1px solid var(--border);
       display: flex;
       flex-direction: column;
@@ -92,7 +100,7 @@
       border: 1px solid var(--border);
     }
 
-    /* Fixed Zoomed-in Moving Viewport */
+    /* Fixed Viewport Screen Container */
     .waveform-card {
       width: 100%;
       height: 100px;
@@ -100,8 +108,14 @@
       border: 1px solid var(--border);
       border-radius: 6px;
       margin-bottom: 12px;
-      overflow-x: hidden !important;
       position: relative;
+      overflow: hidden !important; /* Forces zoomed canvas to clip inside card */
+    }
+
+    .waveform-target {
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
     }
 
     .playhead-center {
@@ -134,6 +148,9 @@
       text-align: center;
       display: block;
       transition: all 0.2s ease;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .hidden-file-input {
@@ -289,7 +306,7 @@
 <body>
 
   <h1>DJ TRANSITION CLASH</h1>
-  <p class="subtitle">ZOOMED MOVING WAVEFORM & DSP BPM ANALYZER</p>
+  <p class="subtitle">PRO CONSOLE • HARDWARE VIEWPORT ENGINE</p>
 
   <div class="dj-console">
     <div class="decks">
@@ -302,7 +319,7 @@
         </div>
         <div class="waveform-card">
           <div class="playhead-center"></div>
-          <div id="waveA"></div>
+          <div id="waveA" class="waveform-target"></div>
         </div>
         
         <div class="file-btn-wrapper">
@@ -334,7 +351,7 @@
         </div>
         <div class="waveform-card">
           <div class="playhead-center"></div>
-          <div id="waveB"></div>
+          <div id="waveB" class="waveform-target"></div>
         </div>
 
         <div class="file-btn-wrapper">
@@ -399,19 +416,21 @@
       return crossFade;
     }
 
-    // Initialize Wavesurfer with Rekordbox Zoom & AutoScroll
+    // Initialize Wavesurfer with Contained Viewport
     function initWavesurfer() {
       const config = {
         waveColor: '#1e1e28',
         progressColor: '#00f2fe',
-        cursorColor: 'transparent', // Centered overlay replaces cursor
+        cursorColor: 'transparent',
         barWidth: 3,
         barGap: 2,
         barRadius: 2,
         height: 100,
-        minPxPerSec: 120, // FORCE REKORDBOX ZOOM IN
+        minPxPerSec: 80, // High precision zoom
         autoScroll: true,
-        autoCenter: true
+        autoCenter: true,
+        hideScrollbar: true, // Prevents scrollbars from bursting out layout
+        fillParent: false
       };
 
       wsA = WaveSurfer.create({ ...config, container: '#waveA' });
@@ -419,7 +438,7 @@
     }
     initWavesurfer();
 
-    // Low-Pass Filter Transient Analysis for Accurate BPM
+    // Low-Pass Filter Transient DSP Analysis for BPM
     async function analyzeBPM(arrayBuffer) {
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       const buffer = await audioCtx.decodeAudioData(arrayBuffer);
@@ -428,7 +447,6 @@
       const source = offlineCtx.createBufferSource();
       source.buffer = buffer;
 
-      // Filter high freqs to isolate kick/bass transients
       const filter = offlineCtx.createBiquadFilter();
       filter.type = 'lowpass';
       filter.frequency.value = 150;
@@ -467,7 +485,7 @@
       return bpm;
     }
 
-    // Cue Modal Logic
+    // Cue Modal
     function openCueModal(file, isDeckA) {
       pendingFile = file;
       pendingIsDeckA = isDeckA;
@@ -508,7 +526,7 @@
       const cueBtn = document.getElementById(isA ? 'cueA' : 'cueB');
       const fileLabel = document.getElementById(isA ? 'fileBtnA' : 'fileBtnB');
 
-      fileLabel.innerText = pendingFile.name.substring(0, 18) + "...";
+      fileLabel.innerText = pendingFile.name;
       const url = URL.createObjectURL(pendingFile);
 
       ws.load(url);
