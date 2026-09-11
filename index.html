@@ -442,23 +442,25 @@
   </div>
 
   <script>
-    let playerA, playerB, eqA, eqB, volA, volB, crossFade;
+   let playerA, playerB, eqA, eqB, volA, volB, crossFade;
     let transitionStart = 0, transitionEnd = 0;
     let pendingFile = null, pendingIsDeckA = false;
     let startCueA = 0, startCueB = 0;
+
+    // Track active playback start timestamps
+    let playStartTimeA = 0, playStartTimeB = 0;
 
     function getCrossFade() {
       if (!crossFade) crossFade = new Tone.CrossFade(0).toDestination();
       return crossFade;
     }
 
-    // Real-Time Scrolling Waveform Engine (Rekordbox Viewport Style)
-    function renderMovingWaveform(canvasId, player, cueOffset = 0) {
+    // High-Precision Real-Time Waveform Viewport Engine
+    function renderMovingWaveform(canvasId, player, cueOffset, playStartTime) {
       const canvas = document.getElementById(canvasId);
       if (!canvas) return;
       const ctx = canvas.getContext('2d');
 
-      // Sync canvas dimensions
       if (canvas.width !== canvas.offsetWidth) canvas.width = canvas.offsetWidth || 350;
       if (canvas.height !== canvas.offsetHeight) canvas.height = canvas.offsetHeight || 70;
 
@@ -474,14 +476,15 @@
       const rawData = buffer.getChannelData(0);
       const sampleRate = buffer.sampleRate;
 
-      // Calculate active position in seconds
+      // Calculate exact elapsed seconds since play was pressed
       let currentTime = cueOffset;
-      if (player.state === "started") {
-        currentTime = player.seek();
+      if (player.state === "started" && playStartTime > 0) {
+        const elapsed = (performance.now() - playStartTime) / 1000;
+        currentTime = (cueOffset + elapsed) % buffer.duration;
       }
 
-      // Show a 3-second zoomed-in window (1.5s past, 1.5s future around playhead)
-      const windowDuration = 3.0; 
+      // Display a 2.5 second zoomed-in window
+      const windowDuration = 2.5; 
       const centerSample = Math.floor(currentTime * sampleRate);
       const halfWindowSamples = Math.floor((windowDuration / 2) * sampleRate);
 
@@ -502,10 +505,10 @@
       }
     }
 
-    // Animation Loop running at 60 FPS
+    // 60 FPS Render Loop
     function drawLoop() {
-      renderMovingWaveform('waveA', playerA, startCueA);
-      renderMovingWaveform('waveB', playerB, startCueB);
+      renderMovingWaveform('waveA', playerA, startCueA, playStartTimeA);
+      renderMovingWaveform('waveB', playerB, startCueB, playStartTimeB);
       requestAnimationFrame(drawLoop);
     }
     requestAnimationFrame(drawLoop);
@@ -527,7 +530,7 @@
       return Math.round(bpm);
     }
 
-    // File Selector Modal
+    // Cue Point Selector Modal
     function openCueModal(file, isDeckA) {
       pendingFile = file;
       pendingIsDeckA = isDeckA;
@@ -574,8 +577,8 @@
         }
       });
 
-      if (isA) { playerA = player; eqA = eq; volA = vol; startCueA = startTime; }
-      else { playerB = player; eqB = eq; volB = vol; startCueB = startTime; }
+      if (isA) { playerA = player; eqA = eq; volA = vol; startCueA = startTime; playStartTimeA = 0; }
+      else { playerB = player; eqB = eq; volB = vol; startCueB = startTime; playStartTimeB = 0; }
     });
 
     // File Input Handlers
@@ -587,8 +590,10 @@
       await Tone.start();
       if (playerA.state === "started") { 
         playerA.stop(); 
+        playStartTimeA = 0;
         document.getElementById('playA').innerHTML = "&#9654;"; 
       } else { 
+        playStartTimeA = performance.now();
         playerA.start(undefined, startCueA); 
         document.getElementById('playA').innerHTML = "&#10074;&#10074;"; 
       }
@@ -598,14 +603,16 @@
       await Tone.start();
       if (playerB.state === "started") { 
         playerB.stop(); 
+        playStartTimeB = 0;
         document.getElementById('playB').innerHTML = "&#9654;"; 
       } else { 
+        playStartTimeB = performance.now();
         playerB.start(undefined, startCueB); 
         document.getElementById('playB').innerHTML = "&#10074;&#10074;"; 
       }
     });
 
-    // Hotkeys (Q/W for Deck A Vol, O/P for Deck B Vol)
+    // Keyboard Volume Hotkeys
     window.addEventListener('keydown', (e) => {
       const volSliderA = document.getElementById('volA');
       const volSliderB = document.getElementById('volB');
@@ -688,7 +695,6 @@
       document.getElementById('scoreHeader').innerText = `SCORE: ${score} / 100`;
       document.getElementById('scoreLog').innerHTML = logs.map(l => `<p style="margin: 3px 0;">${l}</p>`).join('');
     });
-      
   </script>
 </body>
 </html>
