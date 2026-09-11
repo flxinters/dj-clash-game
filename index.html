@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>DJ TRANSITION CLASH</title>
+  <title>DJ TRANSITION CLASH - PRO</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
   <style>
     :root {
@@ -90,15 +90,16 @@
       border: 1px solid var(--border);
     }
 
-    /* Waveform Screen */
+    /* Scrolling Waveform Viewport */
     .waveform-card {
       width: 100%;
-      height: 60px;
+      height: 70px;
       background: #050507;
       border: 1px solid var(--border);
       border-radius: 4px;
       margin-bottom: 12px;
       position: relative;
+      overflow: hidden;
     }
 
     canvas {
@@ -106,11 +107,50 @@
       height: 100%;
     }
 
-    .file-input {
-      font-size: 0.75rem;
-      width: 100%;
-      color: var(--text-muted);
+    .playhead {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      width: 2px;
+      height: 100%;
+      background-color: var(--text-main);
+      box-shadow: 0 0 6px var(--cyan);
+      z-index: 10;
+    }
+
+    /* Custom File Input Styling */
+    .file-btn-wrapper {
+      position: relative;
       margin-bottom: 15px;
+      width: 100%;
+    }
+
+    .custom-file-btn {
+      background: #121216;
+      border: 1px dashed var(--cyan);
+      color: var(--cyan);
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+      display: block;
+      transition: all 0.2s ease;
+    }
+
+    .custom-file-btn:hover {
+      background: rgba(0, 242, 254, 0.1);
+    }
+
+    .hidden-file-input {
+      position: absolute;
+      left: 0;
+      top: 0;
+      opacity: 0;
+      width: 100%;
+      height: 100%;
+      cursor: pointer;
     }
 
     /* Hardware Transport Play Button */
@@ -169,7 +209,6 @@
       font-weight: 600;
     }
 
-    /* Range Sliders turned Vertical */
     input[type=range].vertical {
       writing-mode: bt-linear;
       appearance: slider-vertical;
@@ -253,12 +292,41 @@
       font-size: 0.8rem;
       margin-top: 8px;
     }
+
+    /* Start Cue-Point Selector Modal */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0,0,0,0.85);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .modal-card {
+      background: var(--panel-bg);
+      border: 1px solid var(--cyan);
+      border-radius: 10px;
+      padding: 20px;
+      width: 420px;
+      text-align: center;
+    }
+
+    .cue-slider {
+      width: 100%;
+      accent-color: var(--cyan);
+      margin: 15px 0;
+    }
   </style>
 </head>
 <body>
 
   <h1>DJ TRANSITION CLASH</h1>
-  <p class="subtitle">MINIMALIST PRO CONSOLE</p>
+  <p class="subtitle">PRO CONSOLE • HOTKEYS: DECK A VOL [Q/W] | DECK B VOL [O/P]</p>
 
   <div class="dj-console">
     <div class="decks">
@@ -270,14 +338,20 @@
           <span id="bpmA" class="bpm-badge">-- BPM</span>
         </div>
         <div class="waveform-card">
+          <div class="playhead"></div>
           <canvas id="waveA"></canvas>
         </div>
-        <input type="file" id="fileA" class="file-input" accept="audio/*">
+        
+        <div class="file-btn-wrapper">
+          <div id="fileBtnA" class="custom-file-btn">LOAD TRACK A</div>
+          <input type="file" id="fileA" class="hidden-file-input" accept="audio/*">
+        </div>
+        
         <button id="playA" class="play-btn" disabled>&#9654;</button>
 
         <div class="mixer-strip">
           <div class="v-control">
-            <label>VOL</label>
+            <label>VOL [Q/W]</label>
             <input type="range" id="volA" class="vertical" min="0" max="1" step="0.01" value="1">
           </div>
           <div class="v-control">
@@ -302,14 +376,20 @@
           <span id="bpmB" class="bpm-badge">-- BPM</span>
         </div>
         <div class="waveform-card">
+          <div class="playhead"></div>
           <canvas id="waveB"></canvas>
         </div>
-        <input type="file" id="fileB" class="file-input" accept="audio/*">
+
+        <div class="file-btn-wrapper">
+          <div id="fileBtnB" class="custom-file-btn">LOAD TRACK B</div>
+          <input type="file" id="fileB" class="hidden-file-input" accept="audio/*">
+        </div>
+
         <button id="playB" class="play-btn" disabled>&#9654;</button>
 
         <div class="mixer-strip">
           <div class="v-control">
-            <label>VOL</label>
+            <label>VOL [O/P]</label>
             <input type="range" id="volB" class="vertical" min="0" max="1" step="0.01" value="1">
           </div>
           <div class="v-control">
@@ -350,39 +430,65 @@
     </div>
   </div>
 
+  <!-- START TIMESTAMP SELECTOR MODAL -->
+  <div id="cueModal" class="modal-overlay">
+    <div class="modal-card">
+      <h3 style="margin-top:0; color: var(--cyan);">SELECT START CUE POINT</h3>
+      <p style="font-size: 0.8rem; color: var(--text-muted);">Scrub to choose where the track should start playing:</p>
+      <input type="range" id="cueScrubber" class="cue-slider" min="0" max="100" value="0">
+      <div id="cueTimeDisplay" style="font-family: monospace; color: var(--cyan); margin-bottom: 15px;">00:00</div>
+      <button id="confirmCueBtn" class="btn-submit">CONFIRM START POINT</button>
+    </div>
+  </div>
+
   <script>
     let playerA, playerB, eqA, eqB, volA, volB, crossFade;
     let transitionStart = 0, transitionEnd = 0;
+    let pendingFile = null, pendingIsDeckA = false, pendingBuffer = null;
+    let startCueA = 0, startCueB = 0;
 
     function getCrossFade() {
       if (!crossFade) crossFade = new Tone.CrossFade(0).toDestination();
       return crossFade;
     }
 
-    // Waveform Renderer Engine
-    function drawWaveform(canvasId, buffer) {
+    // Live Scrolling Waveform Engine
+    function renderMovingWaveform(canvasId, buffer, currentTime) {
       const canvas = document.getElementById(canvasId);
       const ctx = canvas.getContext('2d');
       const width = canvas.width = canvas.offsetWidth;
       const height = canvas.height = canvas.offsetHeight;
-      
+      if (!buffer) return;
+
       const data = buffer.getChannelData(0);
-      const step = Math.ceil(data.length / width);
-      const amp = height / 2;
+      const duration = buffer.duration;
+      const progress = currentTime / duration;
+      const centerIndex = Math.floor(progress * data.length);
+
+      const visibleSamples = Math.floor(buffer.sampleRate * 4); // Show 4 seconds window
+      const startIndex = centerIndex - Math.floor(visibleSamples / 2);
 
       ctx.clearRect(0, 0, width, height);
       ctx.fillStyle = "#00f2fe";
 
+      const step = Math.ceil(visibleSamples / width);
+      const amp = height / 2;
+
       for (let i = 0; i < width; i++) {
-        let min = 1.0, max = -1.0;
-        for (let j = 0; j < step; j++) {
-          const datum = data[(i * step) + j];
-          if (datum < min) min = datum;
-          if (datum > max) max = datum;
+        const samplePos = startIndex + (i * step);
+        if (samplePos >= 0 && samplePos < data.length) {
+          const datum = data[samplePos];
+          ctx.fillRect(i, amp - (datum * amp), 1, Math.max(1, Math.abs(datum * amp * 2)));
         }
-        ctx.fillRect(i, (1 + min) * amp, 1, Math.max(1, (max - min) * amp));
       }
     }
+
+    function animateWaveforms() {
+      if (playerA && playerA.state === "started") renderMovingWaveform('waveA', playerA.buffer, playerA.seek());
+      if (playerB && playerB.state === "started") renderMovingWaveform('waveB', playerB.buffer, playerB.seek());
+      requestAnimationFrame(animateWaveforms);
+    }
+    requestAnimationFrame(animateWaveforms);
 
     // BPM Calculation
     function estimateBPM(buffer) {
@@ -401,12 +507,41 @@
       return Math.round(bpm);
     }
 
-    // Setup Audio Chains
-    function loadDeck(file, isDeckA) {
-      const btn = document.getElementById(isDeckA ? 'playA' : 'playB');
+    // Modal & Cue Point Logic
+    function openCueModal(file, isDeckA) {
+      pendingFile = file;
+      pendingIsDeckA = isDeckA;
+      
+      const url = URL.createObjectURL(file);
+      const tempPlayer = new Tone.Player(url, () => {
+        pendingBuffer = tempPlayer.buffer;
+        const scrubber = document.getElementById('cueScrubber');
+        scrubber.max = Math.floor(pendingBuffer.duration);
+        scrubber.value = 0;
+        document.getElementById('cueTimeDisplay').innerText = "00:00";
+        document.getElementById('cueModal').style.display = 'flex';
+      });
+    }
+
+    document.getElementById('cueScrubber').addEventListener('input', (e) => {
+      const sec = parseInt(e.target.value);
+      const mins = Math.floor(sec / 60);
+      const secs = sec % 60;
+      document.getElementById('cueTimeDisplay').innerText = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    });
+
+    document.getElementById('confirmCueBtn').addEventListener('click', () => {
+      const startTime = parseFloat(document.getElementById('cueScrubber').value);
+      document.getElementById('cueModal').style.display = 'none';
+
+      const isA = pendingIsDeckA;
+      const btn = document.getElementById(isA ? 'playA' : 'playB');
+      const fileLabel = document.getElementById(isA ? 'fileBtnA' : 'fileBtnB');
+      
+      fileLabel.innerText = pendingFile.name.substring(0, 18) + "...";
       btn.disabled = true;
 
-      const url = URL.createObjectURL(file);
+      const url = URL.createObjectURL(pendingFile);
       const eq = new Tone.EQ3(0, 0, 0);
       const vol = new Tone.Volume(0);
 
@@ -414,35 +549,57 @@
         url: url,
         loop: true,
         onload: () => {
-          player.chain(eq, vol, isDeckA ? getCrossFade().a : getCrossFade().b);
-          drawWaveform(isDeckA ? 'waveA' : 'waveB', player.buffer);
-          document.getElementById(isDeckA ? 'bpmA' : 'bpmB').innerText = `${estimateBPM(player.buffer)} BPM`;
+          player.chain(eq, vol, isA ? getCrossFade().a : getCrossFade().b);
+          document.getElementById(isA ? 'bpmA' : 'bpmB').innerText = `${estimateBPM(player.buffer)} BPM`;
           btn.disabled = false;
         }
       });
 
-      if (isDeckA) { playerA = player; eqA = eq; volA = vol; }
-      else { playerB = player; eqB = eq; volB = vol; }
-    }
+      if (isA) { playerA = player; eqA = eq; volA = vol; startCueA = startTime; }
+      else { playerB = player; eqB = eq; volB = vol; startCueB = startTime; }
+    });
 
-    // File Upload Listeners
-    document.getElementById('fileA').addEventListener('change', (e) => { if (e.target.files[0]) loadDeck(e.target.files[0], true); });
-    document.getElementById('fileB').addEventListener('change', (e) => { if (e.target.files[0]) loadDeck(e.target.files[0], false); });
+    // File Input Handlers
+    document.getElementById('fileA').addEventListener('change', (e) => { if (e.target.files[0]) openCueModal(e.target.files[0], true); });
+    document.getElementById('fileB').addEventListener('change', (e) => { if (e.target.files[0]) openCueModal(e.target.files[0], false); });
 
-    // Transport Buttons
+    // Transport Play Buttons
     document.getElementById('playA').addEventListener('click', async () => {
       await Tone.start();
       if (playerA.state === "started") { playerA.stop(); document.getElementById('playA').innerHTML = "&#9654;"; }
-      else { playerA.start(); document.getElementById('playA').innerHTML = "&#10074;&#10074;"; }
+      else { playerA.start(undefined, startCueA); document.getElementById('playA').innerHTML = "&#10074;&#10074;"; }
     });
 
     document.getElementById('playB').addEventListener('click', async () => {
       await Tone.start();
       if (playerB.state === "started") { playerB.stop(); document.getElementById('playB').innerHTML = "&#9654;"; }
-      else { playerB.start(); document.getElementById('playB').innerHTML = "&#10074;&#10074;"; }
+      else { playerB.start(undefined, startCueB); document.getElementById('playB').innerHTML = "&#10074;&#10074;"; }
     });
 
-    // Mixer Hardware Listeners
+    // Keyboard Hotkeys (Q/W for Deck A, O/P for Deck B Volume)
+    window.addEventListener('keydown', (e) => {
+      const volSliderA = document.getElementById('volA');
+      const volSliderB = document.getElementById('volB');
+
+      if (e.key.toLowerCase() === 'q') {
+        volSliderA.value = Math.max(0, parseFloat(volSliderA.value) - 0.05);
+        volSliderA.dispatchEvent(new Event('input'));
+      }
+      if (e.key.toLowerCase() === 'w') {
+        volSliderA.value = Math.min(1, parseFloat(volSliderA.value) + 0.05);
+        volSliderA.dispatchEvent(new Event('input'));
+      }
+      if (e.key.toLowerCase() === 'o') {
+        volSliderB.value = Math.max(0, parseFloat(volSliderB.value) - 0.05);
+        volSliderB.dispatchEvent(new Event('input'));
+      }
+      if (e.key.toLowerCase() === 'p') {
+        volSliderB.value = Math.min(1, parseFloat(volSliderB.value) + 0.05);
+        volSliderB.dispatchEvent(new Event('input'));
+      }
+    });
+
+    // Mixer Controls
     document.getElementById('volA').addEventListener('input', (e) => { if (volA) volA.volume.value = Tone.gainToDb(parseFloat(e.target.value)); });
     document.getElementById('volB').addEventListener('input', (e) => { if (volB) volB.volume.value = Tone.gainToDb(parseFloat(e.target.value)); });
 
@@ -454,7 +611,7 @@
     document.getElementById('midB').addEventListener('input', (e) => { if (eqB) eqB.mid.value = parseFloat(e.target.value); });
     document.getElementById('lowB').addEventListener('input', (e) => { if (eqB) eqB.low.value = parseFloat(e.target.value); });
 
-    // Crossfader Tracking
+    // Crossfader Logic
     const fader = document.getElementById('fader');
     fader.addEventListener('input', (e) => {
       const val = parseFloat(e.target.value);
@@ -463,7 +620,7 @@
       if (val >= 0.95 && transitionStart !== 0 && transitionEnd === 0) transitionEnd = Date.now();
     });
 
-    // Multi-Metric AI Transition Evaluator
+    // AI Transition Evaluator
     document.getElementById('submitBtn').addEventListener('click', () => {
       let score = 100;
       let logs = [];
@@ -472,7 +629,6 @@
       const lowAVal = eqA ? eqA.low.value : 0;
       const lowBVal = eqB ? eqB.low.value : 0;
 
-      // 1. Crossfader Execution
       if (faderVal < 0.9) {
         score -= 35;
         logs.push("❌ Incomplete transition: Crossfader never reached Deck B (-35 pts)");
@@ -480,7 +636,6 @@
         logs.push("✅ Full crossfader sweep completed.");
       }
 
-      // 2. Duration Quality
       if (transitionStart && transitionEnd) {
         const duration = (transitionEnd - transitionStart) / 1000;
         logs.push(`⏱️ Duration: ${duration.toFixed(2)}s`);
@@ -492,7 +647,6 @@
         logs.push("❌ Crossfader movement missing (-40 pts)");
       }
 
-      // 3. Frequency / Bass Clash Engine
       if (lowAVal > -6 && lowBVal > -6 && faderVal > 0.3 && faderVal < 0.7) {
         score -= 20;
         logs.push("⚠️ Low-end clash detected! Both sub-bass EQ knobs were open during the blend (-20 pts)");
