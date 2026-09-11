@@ -3,10 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <title>DJ TRANSITION CLASH - PRO CONSOLE</title>
-  <!-- Tone.js for Audio Engine & EQ -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
-  <!-- Wavesurfer.js for Industry-Standard Accurate Waveforms -->
   <script src="https://unpkg.com/wavesurfer.js@7"></script>
+
   <style>
     :root {
       --bg-color: #0a0a0c;
@@ -93,7 +92,7 @@
       border: 1px solid var(--border);
     }
 
-    /* Wavesurfer Screen Container */
+    /* Fixed Zoomed-in Moving Viewport */
     .waveform-card {
       width: 100%;
       height: 100px;
@@ -101,7 +100,20 @@
       border: 1px solid var(--border);
       border-radius: 6px;
       margin-bottom: 12px;
-      overflow: hidden;
+      overflow-x: hidden !important;
+      position: relative;
+    }
+
+    .playhead-center {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      width: 2px;
+      height: 100%;
+      background: #ffffff;
+      box-shadow: 0 0 8px var(--cyan);
+      z-index: 100;
+      pointer-events: none;
     }
 
     .file-btn-wrapper {
@@ -124,10 +136,6 @@
       transition: all 0.2s ease;
     }
 
-    .custom-file-btn:hover {
-      background: rgba(0, 242, 254, 0.1);
-    }
-
     .hidden-file-input {
       position: absolute;
       left: 0;
@@ -138,7 +146,6 @@
       cursor: pointer;
     }
 
-    /* Transport Controls */
     .transport-bar {
       display: flex;
       gap: 12px;
@@ -159,13 +166,6 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: all 0.2s ease;
-    }
-
-    .cue-btn:hover {
-      background: #ff007f;
-      color: #000;
-      box-shadow: 0 0 12px rgba(255, 0, 127, 0.4);
     }
 
     .play-btn {
@@ -180,21 +180,6 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: all 0.2s ease;
-      box-shadow: 0 0 10px rgba(0,242,254,0.1);
-    }
-
-    .play-btn:hover {
-      background: var(--cyan);
-      color: #000;
-      box-shadow: 0 0 15px rgba(0,242,254,0.4);
-    }
-
-    .transport-bar button:disabled {
-      border-color: var(--border) !important;
-      color: var(--text-muted) !important;
-      box-shadow: none !important;
-      cursor: not-allowed;
     }
 
     .mixer-strip {
@@ -239,13 +224,6 @@
       text-align: center;
     }
 
-    .crossfader-panel label {
-      font-size: 0.75rem;
-      letter-spacing: 1px;
-      color: var(--text-muted);
-      font-weight: 600;
-    }
-
     .crossfader-slider {
       width: 70%;
       height: 6px;
@@ -277,10 +255,7 @@
       border-radius: 20px;
       letter-spacing: 1px;
       cursor: pointer;
-      transition: opacity 0.2s;
     }
-
-    .btn-submit:hover { opacity: 0.85; }
 
     .score-box {
       margin-top: 20px;
@@ -291,51 +266,30 @@
       display: none;
     }
 
-    .score-header {
-      font-size: 1.2rem;
-      color: var(--cyan);
-      font-weight: bold;
-    }
-
-    .score-log {
-      color: var(--text-muted);
-      font-size: 0.8rem;
-      margin-top: 8px;
-    }
+    .score-header { font-size: 1.2rem; color: var(--cyan); font-weight: bold; }
+    .score-log { color: var(--text-muted); font-size: 0.8rem; margin-top: 8px; }
 
     .modal-overlay {
       position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
+      top: 0; left: 0; width: 100vw; height: 100vh;
       background: rgba(0,0,0,0.85);
-      display: none;
-      align-items: center;
-      justify-content: center;
+      display: none; align-items: center; justify-content: center;
       z-index: 1000;
     }
 
     .modal-card {
       background: var(--panel-bg);
       border: 1px solid var(--cyan);
-      border-radius: 10px;
-      padding: 20px;
-      width: 420px;
-      text-align: center;
+      border-radius: 10px; padding: 20px; width: 420px; text-align: center;
     }
 
-    .cue-slider {
-      width: 100%;
-      accent-color: var(--cyan);
-      margin: 15px 0;
-    }
+    .cue-slider { width: 100%; accent-color: var(--cyan); margin: 15px 0; }
   </style>
 </head>
 <body>
 
   <h1>DJ TRANSITION CLASH</h1>
-  <p class="subtitle">PRO CONSOLE • ACCURATE WAVESURFER ENGINE</p>
+  <p class="subtitle">ZOOMED MOVING WAVEFORM & DSP BPM ANALYZER</p>
 
   <div class="dj-console">
     <div class="decks">
@@ -347,6 +301,7 @@
           <span id="bpmA" class="bpm-badge">-- BPM</span>
         </div>
         <div class="waveform-card">
+          <div class="playhead-center"></div>
           <div id="waveA"></div>
         </div>
         
@@ -365,18 +320,9 @@
             <label>VOL [Q/W]</label>
             <input type="range" id="volA" class="vertical" min="0" max="1" step="0.01" value="1">
           </div>
-          <div class="v-control">
-            <label>HIGH</label>
-            <input type="range" id="highA" class="vertical" min="-24" max="6" step="1" value="0">
-          </div>
-          <div class="v-control">
-            <label>MID</label>
-            <input type="range" id="midA" class="vertical" min="-24" max="6" step="1" value="0">
-          </div>
-          <div class="v-control">
-            <label>LOW</label>
-            <input type="range" id="lowA" class="vertical" min="-24" max="6" step="1" value="0">
-          </div>
+          <div class="v-control"><label>HIGH</label><input type="range" id="highA" class="vertical" min="-24" max="6" step="1" value="0"></div>
+          <div class="v-control"><label>MID</label><input type="range" id="midA" class="vertical" min="-24" max="6" step="1" value="0"></div>
+          <div class="v-control"><label>LOW</label><input type="range" id="lowA" class="vertical" min="-24" max="6" step="1" value="0"></div>
         </div>
       </div>
 
@@ -387,6 +333,7 @@
           <span id="bpmB" class="bpm-badge">-- BPM</span>
         </div>
         <div class="waveform-card">
+          <div class="playhead-center"></div>
           <div id="waveB"></div>
         </div>
 
@@ -405,18 +352,9 @@
             <label>VOL [O/P]</label>
             <input type="range" id="volB" class="vertical" min="0" max="1" step="0.01" value="1">
           </div>
-          <div class="v-control">
-            <label>HIGH</label>
-            <input type="range" id="highB" class="vertical" min="-24" max="6" step="1" value="0">
-          </div>
-          <div class="v-control">
-            <label>MID</label>
-            <input type="range" id="midB" class="vertical" min="-24" max="6" step="1" value="0">
-          </div>
-          <div class="v-control">
-            <label>LOW</label>
-            <input type="range" id="lowB" class="vertical" min="-24" max="6" step="1" value="0">
-          </div>
+          <div class="v-control"><label>HIGH</label><input type="range" id="highB" class="vertical" min="-24" max="6" step="1" value="0"></div>
+          <div class="v-control"><label>MID</label><input type="range" id="midB" class="vertical" min="-24" max="6" step="1" value="0"></div>
+          <div class="v-control"><label>LOW</label><input type="range" id="lowB" class="vertical" min="-24" max="6" step="1" value="0"></div>
         </div>
       </div>
 
@@ -426,11 +364,7 @@
     <div class="crossfader-panel">
       <label>CROSSFADER</label><br>
       <input type="range" id="fader" class="crossfader-slider" min="0" max="1" step="0.01" value="0">
-      <div class="fader-labels">
-        <span>DECK A</span>
-        <span>MIX</span>
-        <span>DECK B</span>
-      </div>
+      <div class="fader-labels"><span>DECK A</span><span>MIX</span><span>DECK B</span></div>
     </div>
 
     <div class="actions">
@@ -443,11 +377,10 @@
     </div>
   </div>
 
-  <!-- CUE POINT MODAL -->
+  <!-- CUE MODAL -->
   <div id="cueModal" class="modal-overlay">
     <div class="modal-card">
       <h3 style="margin-top:0; color: var(--cyan);">SELECT START CUE POINT</h3>
-      <p style="font-size: 0.8rem; color: var(--text-muted);">Scrub to choose where the track should start playing:</p>
       <input type="range" id="cueScrubber" class="cue-slider" min="0" max="100" value="0">
       <div id="cueTimeDisplay" style="font-family: monospace; color: var(--cyan); margin-bottom: 15px;">00:00</div>
       <button id="confirmCueBtn" class="btn-submit">CONFIRM START POINT</button>
@@ -466,53 +399,88 @@
       return crossFade;
     }
 
-    // Initialize Wavesurfer Instances
+    // Initialize Wavesurfer with Rekordbox Zoom & AutoScroll
     function initWavesurfer() {
-      wsA = WaveSurfer.create({
-        container: '#waveA',
+      const config = {
         waveColor: '#1e1e28',
         progressColor: '#00f2fe',
-        cursorColor: '#ffffff',
-        barWidth: 2,
+        cursorColor: 'transparent', // Centered overlay replaces cursor
+        barWidth: 3,
+        barGap: 2,
         barRadius: 2,
         height: 100,
-        responsive: true
-      });
+        minPxPerSec: 120, // FORCE REKORDBOX ZOOM IN
+        autoScroll: true,
+        autoCenter: true
+      };
 
-      wsB = WaveSurfer.create({
-        container: '#waveB',
-        waveColor: '#1e1e28',
-        progressColor: '#00f2fe',
-        cursorColor: '#ffffff',
-        barWidth: 2,
-        barRadius: 2,
-        height: 100,
-        responsive: true
-      });
+      wsA = WaveSurfer.create({ ...config, container: '#waveA' });
+      wsB = WaveSurfer.create({ ...config, container: '#waveB' });
     }
     initWavesurfer();
 
-    // BPM Calculation
-    function estimateBPM(buffer) {
-      const rate = buffer.sampleRate;
-      const data = buffer.getChannelData(0);
+    // Low-Pass Filter Transient Analysis for Accurate BPM
+    async function analyzeBPM(arrayBuffer) {
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const buffer = await audioCtx.decodeAudioData(arrayBuffer);
+      
+      const offlineCtx = new OfflineAudioContext(1, buffer.length, buffer.sampleRate);
+      const source = offlineCtx.createBufferSource();
+      source.buffer = buffer;
+
+      // Filter high freqs to isolate kick/bass transients
+      const filter = offlineCtx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = 150;
+
+      source.connect(filter);
+      filter.connect(offlineCtx.destination);
+      source.start(0);
+
+      const renderedBuffer = await offlineCtx.startRendering();
+      const data = renderedBuffer.getChannelData(0);
+
       let peaks = [];
-      for (let i = 0; i < Math.min(data.length, rate * 10); i += Math.floor(rate / 100)) {
-        if (Math.abs(data[i]) > 0.45) peaks.push(i);
+      const threshold = 0.3;
+      for (let i = 0; i < data.length; i += 200) {
+        if (Math.abs(data[i]) > threshold) {
+          peaks.push(i / buffer.sampleRate);
+        }
       }
-      if (peaks.length < 2) return 128;
+
+      if (peaks.length < 5) return 128;
+
       let intervals = [];
-      for (let i = 1; i < peaks.length; i++) intervals.push(peaks[i] - peaks[i - 1]);
-      let bpm = Math.round((rate / (intervals.reduce((a, b) => a + b) / intervals.length)) * 0.6);
+      for (let i = 1; i < peaks.length; i++) {
+        let diff = peaks[i] - peaks[i - 1];
+        if (diff > 0.3 && diff < 1.0) intervals.push(diff);
+      }
+
+      if (!intervals.length) return 128;
+
+      const avgInterval = intervals.reduce((a, b) => a + b) / intervals.length;
+      let bpm = Math.round(60 / avgInterval);
+
       while (bpm < 80) bpm *= 2;
-      while (bpm > 160) bpm /= 2;
-      return Math.round(bpm);
+      while (bpm > 165) bpm /= 2;
+
+      return bpm;
     }
 
-    // Cue Modal
+    // Cue Modal Logic
     function openCueModal(file, isDeckA) {
       pendingFile = file;
       pendingIsDeckA = isDeckA;
+
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const bpmTag = document.getElementById(isDeckA ? 'bpmA' : 'bpmB');
+        bpmTag.innerText = "Analyzing...";
+        const realBpm = await analyzeBPM(e.target.result.slice(0));
+        bpmTag.innerText = `${realBpm} BPM`;
+      };
+      reader.readAsArrayBuffer(file);
+
       const url = URL.createObjectURL(file);
       const tempPlayer = new Tone.Player(url, () => {
         const scrubber = document.getElementById('cueScrubber');
@@ -543,7 +511,6 @@
       fileLabel.innerText = pendingFile.name.substring(0, 18) + "...";
       const url = URL.createObjectURL(pendingFile);
 
-      // Load Wavesurfer Accurate Visuals
       ws.load(url);
       ws.on('ready', () => {
         ws.setTime(startTime);
@@ -551,7 +518,6 @@
         cueBtn.disabled = false;
       });
 
-      // Load Tone.js Audio Node
       const eq = new Tone.EQ3(0, 0, 0);
       const vol = new Tone.Volume(0);
       const player = new Tone.Player({
@@ -559,8 +525,6 @@
         loop: true,
         onload: () => {
           player.chain(eq, vol, isA ? getCrossFade().a : getCrossFade().b);
-          const bpm = estimateBPM(player.buffer);
-          document.getElementById(isA ? 'bpmA' : 'bpmB').innerText = `${bpm} BPM`;
         }
       });
 
@@ -568,81 +532,35 @@
       else { eqB = eq; volB = vol; cueTimeB = startTime; }
     });
 
-    // File Input Handlers
     document.getElementById('fileA').addEventListener('change', (e) => { if (e.target.files[0]) openCueModal(e.target.files[0], true); });
     document.getElementById('fileB').addEventListener('change', (e) => { if (e.target.files[0]) openCueModal(e.target.files[0], false); });
 
-    // CUE Buttons
-    document.getElementById('cueA').addEventListener('click', () => {
-      wsA.pause();
-      wsA.setTime(cueTimeA);
-      document.getElementById('playA').innerHTML = "&#9654;";
-    });
+    document.getElementById('cueA').addEventListener('click', () => { wsA.pause(); wsA.setTime(cueTimeA); document.getElementById('playA').innerHTML = "&#9654;"; });
+    document.getElementById('cueB').addEventListener('click', () => { wsB.pause(); wsB.setTime(cueTimeB); document.getElementById('playB').innerHTML = "&#9654;"; });
 
-    document.getElementById('cueB').addEventListener('click', () => {
-      wsB.pause();
-      wsB.setTime(cueTimeB);
-      document.getElementById('playB').innerHTML = "&#9654;";
-    });
-
-    // PLAY/PAUSE Buttons
     document.getElementById('playA').addEventListener('click', async () => {
       await Tone.start();
-      if (wsA.isPlaying()) {
-        wsA.pause();
-        document.getElementById('playA').innerHTML = "&#9654;";
-      } else {
-        wsA.play();
-        document.getElementById('playA').innerHTML = "&#10074;&#10074;";
-      }
+      if (wsA.isPlaying()) { wsA.pause(); document.getElementById('playA').innerHTML = "&#9654;"; }
+      else { wsA.play(); document.getElementById('playA').innerHTML = "&#10074;&#10074;"; }
     });
 
     document.getElementById('playB').addEventListener('click', async () => {
       await Tone.start();
-      if (wsB.isPlaying()) {
-        wsB.pause();
-        document.getElementById('playB').innerHTML = "&#9654;";
-      } else {
-        wsB.play();
-        document.getElementById('playB').innerHTML = "&#10074;&#10074;";
-      }
+      if (wsB.isPlaying()) { wsB.pause(); document.getElementById('playB').innerHTML = "&#9654;"; }
+      else { wsB.play(); document.getElementById('playB').innerHTML = "&#10074;&#10074;"; }
     });
 
-    // Volume Hotkeys
     window.addEventListener('keydown', (e) => {
       const volSliderA = document.getElementById('volA');
       const volSliderB = document.getElementById('volB');
-
-      if (e.key.toLowerCase() === 'q') {
-        volSliderA.value = Math.max(0, parseFloat(volSliderA.value) - 0.05);
-        volSliderA.dispatchEvent(new Event('input'));
-      }
-      if (e.key.toLowerCase() === 'w') {
-        volSliderA.value = Math.min(1, parseFloat(volSliderA.value) + 0.05);
-        volSliderA.dispatchEvent(new Event('input'));
-      }
-      if (e.key.toLowerCase() === 'o') {
-        volSliderB.value = Math.max(0, parseFloat(volSliderB.value) - 0.05);
-        volSliderB.dispatchEvent(new Event('input'));
-      }
-      if (e.key.toLowerCase() === 'p') {
-        volSliderB.value = Math.min(1, parseFloat(volSliderB.value) + 0.05);
-        volSliderB.dispatchEvent(new Event('input'));
-      }
+      if (e.key.toLowerCase() === 'q') { volSliderA.value = Math.max(0, parseFloat(volSliderA.value) - 0.05); volSliderA.dispatchEvent(new Event('input')); }
+      if (e.key.toLowerCase() === 'w') { volSliderA.value = Math.min(1, parseFloat(volSliderA.value) + 0.05); volSliderA.dispatchEvent(new Event('input')); }
+      if (e.key.toLowerCase() === 'o') { volSliderB.value = Math.max(0, parseFloat(volSliderB.value) - 0.05); volSliderB.dispatchEvent(new Event('input')); }
+      if (e.key.toLowerCase() === 'p') { volSliderB.value = Math.min(1, parseFloat(volSliderB.value) + 0.05); volSliderB.dispatchEvent(new Event('input')); }
     });
 
-    // Mixer Listeners
-    document.getElementById('volA').addEventListener('input', (e) => { 
-      const val = parseFloat(e.target.value);
-      if (wsA) wsA.setVolume(val);
-      if (volA) volA.volume.value = Tone.gainToDb(val); 
-    });
-
-    document.getElementById('volB').addEventListener('input', (e) => { 
-      const val = parseFloat(e.target.value);
-      if (wsB) wsB.setVolume(val);
-      if (volB) volB.volume.value = Tone.gainToDb(val); 
-    });
+    document.getElementById('volA').addEventListener('input', (e) => { const val = parseFloat(e.target.value); if (wsA) wsA.setVolume(val); if (volA) volA.volume.value = Tone.gainToDb(val); });
+    document.getElementById('volB').addEventListener('input', (e) => { const val = parseFloat(e.target.value); if (wsB) wsB.setVolume(val); if (volB) volB.volume.value = Tone.gainToDb(val); });
 
     document.getElementById('highA').addEventListener('input', (e) => { if (eqA) eqA.high.value = parseFloat(e.target.value); });
     document.getElementById('midA').addEventListener('input', (e) => { if (eqA) eqA.mid.value = parseFloat(e.target.value); });
@@ -652,7 +570,6 @@
     document.getElementById('midB').addEventListener('input', (e) => { if (eqB) eqB.mid.value = parseFloat(e.target.value); });
     document.getElementById('lowB').addEventListener('input', (e) => { if (eqB) eqB.low.value = parseFloat(e.target.value); });
 
-    // Crossfader Logic
     const fader = document.getElementById('fader');
     fader.addEventListener('input', (e) => {
       const val = parseFloat(e.target.value);
@@ -661,21 +578,15 @@
       if (val >= 0.95 && transitionStart !== 0 && transitionEnd === 0) transitionEnd = Date.now();
     });
 
-    // AI Evaluator
     document.getElementById('submitBtn').addEventListener('click', () => {
       let score = 100;
       let logs = [];
-
       const faderVal = parseFloat(fader.value);
       const lowAVal = eqA ? eqA.low.value : 0;
       const lowBVal = eqB ? eqB.low.value : 0;
 
-      if (faderVal < 0.9) {
-        score -= 35;
-        logs.push("❌ Incomplete transition: Crossfader never reached Deck B (-35 pts)");
-      } else {
-        logs.push("✅ Full crossfader sweep completed.");
-      }
+      if (faderVal < 0.9) { score -= 35; logs.push("❌ Incomplete transition: Crossfader never reached Deck B (-35 pts)"); }
+      else { logs.push("✅ Full crossfader sweep completed."); }
 
       if (transitionStart && transitionEnd) {
         const duration = (transitionEnd - transitionStart) / 1000;
@@ -683,17 +594,11 @@
         if (duration < 2.0) { score -= 25; logs.push("⚠️ Transition too fast/abrupt (-25 pts)"); }
         else if (duration > 9.0) { score -= 15; logs.push("⚠️ Transition too slow (-15 pts)"); }
         else { logs.push("⭐ Optimal transition pacing."); }
-      } else {
-        score -= 40;
-        logs.push("❌ Crossfader movement missing (-40 pts)");
-      }
+      } else { score -= 40; logs.push("❌ Crossfader movement missing (-40 pts)"); }
 
       if (lowAVal > -6 && lowBVal > -6 && faderVal > 0.3 && faderVal < 0.7) {
-        score -= 20;
-        logs.push("⚠️ Low-end clash detected! Both sub-bass EQ knobs were open during the blend (-20 pts)");
-      } else {
-        logs.push("⭐ Clean EQ separation (no low-end clash).");
-      }
+        score -= 20; logs.push("⚠️ Low-end clash detected! Both sub-bass EQ knobs were open during the blend (-20 pts)");
+      } else { logs.push("⭐ Clean EQ separation (no low-end clash)."); }
 
       score = Math.max(0, score);
       document.getElementById('scoreBox').style.display = "block";
