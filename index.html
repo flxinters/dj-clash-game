@@ -452,33 +452,63 @@
       return crossFade;
     }
 
-    // Direct Waveform Generator
-    function drawWaveform(canvasId, buffer) {
+    // Real-Time Scrolling Waveform Engine (Rekordbox Viewport Style)
+    function renderMovingWaveform(canvasId, player, cueOffset = 0) {
       const canvas = document.getElementById(canvasId);
-      if (!canvas || !buffer) return;
+      if (!canvas) return;
       const ctx = canvas.getContext('2d');
 
-      canvas.width = canvas.offsetWidth || 350;
-      canvas.height = canvas.offsetHeight || 70;
+      // Sync canvas dimensions
+      if (canvas.width !== canvas.offsetWidth) canvas.width = canvas.offsetWidth || 350;
+      if (canvas.height !== canvas.offsetHeight) canvas.height = canvas.offsetHeight || 70;
 
+      const width = canvas.width;
+      const height = canvas.height;
+      const amp = height / 2;
+
+      ctx.clearRect(0, 0, width, height);
+
+      if (!player || !player.buffer || !player.buffer.loaded) return;
+
+      const buffer = player.buffer;
       const rawData = buffer.getChannelData(0);
-      const step = Math.ceil(rawData.length / canvas.width);
-      const amp = canvas.height / 2;
+      const sampleRate = buffer.sampleRate;
 
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // Calculate active position in seconds
+      let currentTime = cueOffset;
+      if (player.state === "started") {
+        currentTime = player.seek();
+      }
+
+      // Show a 3-second zoomed-in window (1.5s past, 1.5s future around playhead)
+      const windowDuration = 3.0; 
+      const centerSample = Math.floor(currentTime * sampleRate);
+      const halfWindowSamples = Math.floor((windowDuration / 2) * sampleRate);
+
+      const startSample = centerSample - halfWindowSamples;
+      const totalWindowSamples = halfWindowSamples * 2;
+      const step = totalWindowSamples / width;
+
       ctx.fillStyle = "#00f2fe";
 
-      for (let i = 0; i < canvas.width; i++) {
-        let min = 1.0, max = -1.0;
-        for (let j = 0; j < step; j++) {
-          const datum = rawData[(i * step) + j];
-          if (datum < min) min = datum;
-          if (datum > max) max = datum;
+      for (let i = 0; i < width; i++) {
+        const sampleIndex = Math.floor(startSample + (i * step));
+
+        if (sampleIndex >= 0 && sampleIndex < rawData.length) {
+          const sampleVal = rawData[sampleIndex];
+          const barHeight = Math.max(2, Math.abs(sampleVal * amp * 1.8));
+          ctx.fillRect(i, amp - (barHeight / 2), 1, barHeight);
         }
-        const height = Math.max(2, (max - min) * amp);
-        ctx.fillRect(i, amp - (height / 2), 1, height);
       }
     }
+
+    // Animation Loop running at 60 FPS
+    function drawLoop() {
+      renderMovingWaveform('waveA', playerA, startCueA);
+      renderMovingWaveform('waveB', playerB, startCueB);
+      requestAnimationFrame(drawLoop);
+    }
+    requestAnimationFrame(drawLoop);
 
     // BPM Estimator
     function estimateBPM(buffer) {
@@ -540,9 +570,6 @@
         onload: () => {
           player.chain(eq, vol, isA ? getCrossFade().a : getCrossFade().b);
           document.getElementById(isA ? 'bpmA' : 'bpmB').innerText = `${estimateBPM(player.buffer)} BPM`;
-          
-          // Render waveform immediately
-          drawWaveform(isA ? 'waveA' : 'waveB', player.buffer);
           btn.disabled = false;
         }
       });
@@ -558,17 +585,27 @@
     // Transport Play Buttons
     document.getElementById('playA').addEventListener('click', async () => {
       await Tone.start();
-      if (playerA.state === "started") { playerA.stop(); document.getElementById('playA').innerHTML = "&#9654;"; }
-      else { playerA.start(undefined, startCueA); document.getElementById('playA').innerHTML = "&#10074;&#10074;"; }
+      if (playerA.state === "started") { 
+        playerA.stop(); 
+        document.getElementById('playA').innerHTML = "&#9654;"; 
+      } else { 
+        playerA.start(undefined, startCueA); 
+        document.getElementById('playA').innerHTML = "&#10074;&#10074;"; 
+      }
     });
 
     document.getElementById('playB').addEventListener('click', async () => {
       await Tone.start();
-      if (playerB.state === "started") { playerB.stop(); document.getElementById('playB').innerHTML = "&#9654;"; }
-      else { playerB.start(undefined, startCueB); document.getElementById('playB').innerHTML = "&#10074;&#10074;"; }
+      if (playerB.state === "started") { 
+        playerB.stop(); 
+        document.getElementById('playB').innerHTML = "&#9654;"; 
+      } else { 
+        playerB.start(undefined, startCueB); 
+        document.getElementById('playB').innerHTML = "&#10074;&#10074;"; 
+      }
     });
 
-    // Hotkeys
+    // Hotkeys (Q/W for Deck A Vol, O/P for Deck B Vol)
     window.addEventListener('keydown', (e) => {
       const volSliderA = document.getElementById('volA');
       const volSliderB = document.getElementById('volB');
