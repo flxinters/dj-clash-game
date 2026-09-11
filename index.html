@@ -281,7 +281,7 @@
 <body>
 
   <h1>DJ TRANSITION CLASH</h1>
-  <p class="subtitle">PRO AUDIO PIPELINE • QUANTIZED BEATGRID ENGINE</p>
+  <p class="subtitle">QUANTIZED TRANSIENT DETECTION ENGINE</p>
 
   <div class="dj-console">
     <div class="decks">
@@ -290,7 +290,7 @@
       <div class="deck">
         <div class="deck-header">
           <span class="deck-title">DECK A</span>
-          <span id="bpmA" class="bpm-badge">128 BPM</span>
+          <span id="bpmA" class="bpm-badge">Analyzing...</span>
         </div>
         <div class="waveform-card">
           <div class="playhead-center"></div>
@@ -321,7 +321,7 @@
       <div class="deck">
         <div class="deck-header">
           <span class="deck-title">DECK B</span>
-          <span id="bpmB" class="bpm-badge">128 BPM</span>
+          <span id="bpmB" class="bpm-badge">Analyzing...</span>
         </div>
         <div class="waveform-card">
           <div class="playhead-center"></div>
@@ -375,10 +375,8 @@
     let eqA, eqB, volA, volB, trimNodeA, trimNodeB, crossFade;
     let transitionStart = 0, transitionEnd = 0;
 
-    // Quantized Beatgrid Offsets (Adjusted to exact first-kick transients)
-    const bpmA = 128, bpmB = 128;
-    const beatOffsetA = 0.08; // Offset in seconds to align grid line 1 with kick A
-    const beatOffsetB = 0.12; // Offset in seconds to align grid line 1 with kick B
+    let detectedBpmA = 128, detectedBpmB = 128;
+    let autoOffsetA = 0, autoOffsetB = 0;
 
     function setupToneNodes() {
       crossFade = new Tone.CrossFade(0).toDestination();
@@ -394,7 +392,69 @@
       eqB.chain(trimNodeB, volB, crossFade.b);
     }
 
-    // Quantized Beatgrid Renderer Engine
+    // DSP Onset Analysis: Detects First Heavy Sub-Bass Transient (Kick Drum)
+    async function quantizeAudioTrack(url) {
+      try {
+        const response = await fetch(url);
+        const arrayBuffer = await response.arrayBuffer();
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const buffer = await audioCtx.decodeAudioData(arrayBuffer);
+
+        const offlineCtx = new OfflineAudioContext(1, buffer.length, buffer.sampleRate);
+        const source = offlineCtx.createBufferSource();
+        source.buffer = buffer;
+
+        // Low-pass filter to isolate the sub-bass kick drum (transient)
+        const filter = offlineCtx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = 140;
+
+        source.connect(filter);
+        filter.connect(offlineCtx.destination);
+        source.start(0);
+
+        const renderedBuffer = await offlineCtx.startRendering();
+        const data = renderedBuffer.getChannelData(0);
+
+        // Find the precise timestamp of the FIRST heavy kick transient
+        let firstKickTime = 0;
+        const threshold = 0.25;
+        for (let i = 0; i < data.length; i++) {
+          if (Math.abs(data[i]) > threshold) {
+            firstKickTime = i / buffer.sampleRate;
+            break;
+          }
+        }
+
+        // Tempo Estimation
+        let peaks = [];
+        for (let i = 0; i < Math.min(data.length, buffer.sampleRate * 20); i += 200) {
+          if (Math.abs(data[i]) > threshold) {
+            peaks.push(i / buffer.sampleRate);
+          }
+        }
+
+        let intervals = [];
+        for (let i = 1; i < peaks.length; i++) {
+          let diff = peaks[i] - peaks[i - 1];
+          if (diff > 0.35 && diff < 0.8) intervals.push(diff);
+        }
+
+        let bpm = 128;
+        if (intervals.length > 0) {
+          const avgInterval = intervals.reduce((a, b) => a + b) / intervals.length;
+          bpm = Math.round(60 / avgInterval);
+          while (bpm < 118) bpm *= 2;
+          while (bpm > 150) bpm /= 2;
+        }
+
+        return { bpm, firstKickTime };
+      } catch (err) {
+        return { bpm: 128, firstKickTime: 0 };
+      }
+    }
+
+    // Rekordbox Quantized Beatgrid Canvas Overlay
     function drawBeatgrid(canvasId, wsInstance, bpm, firstBeatOffset) {
       const canvas = document.getElementById(canvasId);
       if (!canvas || !wsInstance) return;
@@ -415,7 +475,6 @@
       const startTime = currentTime - (windowDuration / 2);
       const endTime = currentTime + (windowDuration / 2);
 
-      // Quantize beats relative to first beat offset
       const startBeat = Math.floor((startTime - firstBeatOffset) / secPerBeat);
       const endBeat = Math.ceil((endTime - firstBeatOffset) / secPerBeat);
 
@@ -424,12 +483,10 @@
         const x = (beatTime - startTime) * minPxPerSec;
 
         if (x >= 0 && x <= width) {
-          // Downbeat (Bar 1) Cyan marker vs Quarter Beat white markers
           const isDownbeat = (b % 4 === 0);
-          ctx.fillStyle = isDownbeat ? "rgba(0, 242, 254, 0.85)" : "rgba(255, 255, 255, 0.25)";
+          ctx.fillStyle = isDownbeat ? "rgba(0, 242, 254, 0.9)" : "rgba(255, 255, 255, 0.25)";
           ctx.fillRect(x, 0, isDownbeat ? 2 : 1, height);
 
-          // Render Rekordbox-style beat numbers above downbeats
           if (isDownbeat && b >= 0) {
             ctx.font = "9px monospace";
             ctx.fillStyle = "rgba(0, 242, 254, 0.9)";
@@ -440,12 +497,12 @@
     }
 
     function renderLoop() {
-      if (wsA) drawBeatgrid('gridA', wsA, bpmA, beatOffsetA);
-      if (wsB) drawBeatgrid('gridB', wsB, bpmB, beatOffsetB);
+      if (wsA) drawBeatgrid('gridA', wsA, detectedBpmA, autoOffsetA);
+      if (wsB) drawBeatgrid('gridB', wsB, detectedBpmB, autoOffsetB);
       requestAnimationFrame(renderLoop);
     }
 
-    function initDecks() {
+    async function initDecks() {
       setupToneNodes();
 
       const config = {
@@ -475,14 +532,25 @@
         Tone.connect(mediaNode, eqB);
       });
 
+      // Run Quantization Analysis
+      const resA = await quantizeAudioTrack(TEST_TRACK_A);
+      detectedBpmA = resA.bpm;
+      autoOffsetA = resA.firstKickTime;
+      document.getElementById('bpmA').innerText = `${detectedBpmA} BPM`;
+
+      const resB = await quantizeAudioTrack(TEST_TRACK_B);
+      detectedBpmB = resB.bpm;
+      autoOffsetB = resB.firstKickTime;
+      document.getElementById('bpmB').innerText = `${detectedBpmB} BPM`;
+
       requestAnimationFrame(renderLoop);
     }
 
     window.addEventListener('DOMContentLoaded', initDecks);
 
     // Transport Controls
-    document.getElementById('cueA').addEventListener('click', () => { wsA.pause(); wsA.setTime(0); document.getElementById('playA').innerHTML = "&#9654;"; });
-    document.getElementById('cueB').addEventListener('click', () => { wsB.pause(); wsB.setTime(0); document.getElementById('playB').innerHTML = "&#9654;"; });
+    document.getElementById('cueA').addEventListener('click', () => { wsA.pause(); wsA.setTime(autoOffsetA); document.getElementById('playA').innerHTML = "&#9654;"; });
+    document.getElementById('cueB').addEventListener('click', () => { wsB.pause(); wsB.setTime(autoOffsetB); document.getElementById('playB').innerHTML = "&#9654;"; });
 
     document.getElementById('playA').addEventListener('click', async () => {
       await Tone.start();
