@@ -2,13 +2,22 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>DJ Transition Clash - Pro Prototype</title>
-  <!-- Tone.js Audio Framework -->
+  <title>DJ TRANSITION CLASH</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
   <style>
+    :root {
+      --bg-color: #0a0a0c;
+      --card-bg: #121216;
+      --panel-bg: #18181f;
+      --cyan: #00f2fe;
+      --text-main: #ffffff;
+      --text-muted: #70707c;
+      --border: #262630;
+    }
+
     body {
-      background-color: #121214;
-      color: #ffffff;
+      background-color: var(--bg-color);
+      color: var(--text-main);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       display: flex;
       flex-direction: column;
@@ -16,462 +25,485 @@
       padding: 30px;
       margin: 0;
     }
-    h1 { color: #00f2fe; margin-bottom: 5px; }
-    p.subtitle { color: #a0a0ab; margin-top: 0; margin-bottom: 20px; text-align: center; }
-    
-    .dj-booth {
-      background: #1e1e24;
-      border: 2px solid #333;
+
+    h1 {
+      color: var(--cyan);
+      letter-spacing: 2px;
+      font-size: 1.8rem;
+      margin-bottom: 2px;
+      text-transform: uppercase;
+    }
+
+    p.subtitle {
+      color: var(--text-muted);
+      margin-top: 0;
+      margin-bottom: 25px;
+      font-size: 0.85rem;
+    }
+
+    .dj-console {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 25px;
-      width: 750px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      padding: 24px;
+      width: 820px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.8);
     }
 
     .decks {
       display: flex;
-      justify-content: space-between;
       gap: 20px;
     }
 
     .deck {
-      background: #2a2a32;
+      background: var(--panel-bg);
       border-radius: 8px;
-      padding: 20px;
+      padding: 16px;
       flex: 1;
-      text-align: center;
-      border: 1px solid #444;
+      border: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
 
-    .deck-title { font-weight: bold; font-size: 1.2rem; margin-bottom: 5px; }
-    .deck-a-title { color: #ff007f; }
-    .deck-b-title { color: #00f2fe; }
+    .deck-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      margin-bottom: 10px;
+    }
+
+    .deck-title {
+      font-weight: 700;
+      font-size: 0.9rem;
+      letter-spacing: 1px;
+    }
 
     .bpm-badge {
-      display: inline-block;
-      background: #121214;
-      color: #00f2fe;
-      padding: 4px 12px;
-      border-radius: 12px;
-      font-size: 0.85rem;
-      font-weight: bold;
+      background: #000;
+      color: var(--cyan);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-family: monospace;
+      border: 1px solid var(--border);
+    }
+
+    /* Waveform Screen */
+    .waveform-card {
+      width: 100%;
+      height: 60px;
+      background: #050507;
+      border: 1px solid var(--border);
+      border-radius: 4px;
       margin-bottom: 12px;
-      border: 1px solid #333;
+      position: relative;
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
     }
 
     .file-input {
-      margin-bottom: 12px;
-      font-size: 0.8rem;
+      font-size: 0.75rem;
       width: 100%;
-      color: #aaa;
-    }
-
-    .btn {
-      background: #3a3a46;
-      color: white;
-      border: none;
-      padding: 12px 24px;
-      border-radius: 6px;
-      font-weight: bold;
-      cursor: pointer;
-      transition: background 0.2s;
-      width: 100%;
+      color: var(--text-muted);
       margin-bottom: 15px;
     }
-    .btn:hover { background: #4a4a58; }
 
-    /* Mixer Section (Volume & EQ) */
-    .mixer-section {
-      background: #22222a;
-      padding: 12px;
-      border-radius: 6px;
-      margin-top: 10px;
-      border: 1px solid #333;
-    }
-
-    .control-group {
-      margin-bottom: 10px;
-      text-align: left;
-    }
-
-    .control-group label {
+    /* Hardware Transport Play Button */
+    .play-btn {
+      width: 54px;
+      height: 54px;
+      border-radius: 50%;
+      background: #0d0d11;
+      border: 2px solid var(--cyan);
+      color: var(--cyan);
+      font-size: 1.2rem;
+      cursor: pointer;
       display: flex;
-      justify-content: space-between;
-      font-size: 0.75rem;
-      color: #bbb;
-      margin-bottom: 3px;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      margin-bottom: 15px;
+      box-shadow: 0 0 10px rgba(0,242,254,0.1);
     }
 
-    .eq-grid {
+    .play-btn:hover {
+      background: var(--cyan);
+      color: #000;
+      box-shadow: 0 0 15px rgba(0,242,254,0.4);
+    }
+
+    .play-btn:disabled {
+      border-color: var(--border);
+      color: var(--text-muted);
+      box-shadow: none;
+      cursor: not-allowed;
+    }
+
+    /* Vertical Mixer Strip */
+    .mixer-strip {
       display: flex;
-      justify-content: space-between;
-      gap: 5px;
-      margin-top: 8px;
-    }
-
-    .eq-knob {
-      flex: 1;
-      text-align: center;
-    }
-
-    .eq-knob label {
-      display: block;
-      font-size: 0.7rem;
-      color: #aaa;
-      margin-bottom: 2px;
-    }
-
-    .eq-knob input[type=range] {
+      justify-content: space-around;
       width: 100%;
-      accent-color: #ff007f;
+      background: #0d0d11;
+      padding: 15px 5px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
     }
 
-    .deck-b .eq-knob input[type=range] {
-      accent-color: #00f2fe;
+    .v-control {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
     }
 
-    .crossfader-container {
-      margin-top: 25px;
-      background: #2a2a32;
-      padding: 20px;
+    .v-control label {
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      letter-spacing: 1px;
+      font-weight: 600;
+    }
+
+    /* Range Sliders turned Vertical */
+    input[type=range].vertical {
+      writing-mode: bt-linear;
+      appearance: slider-vertical;
+      width: 8px;
+      height: 90px;
+      accent-color: var(--cyan);
+      cursor: pointer;
+    }
+
+    /* Crossfader Panel */
+    .crossfader-panel {
+      margin-top: 20px;
+      background: var(--panel-bg);
+      border: 1px solid var(--border);
+      padding: 16px;
       border-radius: 8px;
       text-align: center;
     }
 
-    input[type=range] {
-      width: 100%;
-      height: 8px;
-      border-radius: 5px;
-      background: #444;
-      outline: none;
-      cursor: pointer;
+    .crossfader-panel label {
+      font-size: 0.75rem;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      font-weight: 600;
     }
 
     .crossfader-slider {
-      accent-color: #00f2fe;
-      width: 80% !important;
+      width: 70%;
+      height: 6px;
+      accent-color: var(--cyan);
+      margin-top: 10px;
+      cursor: pointer;
     }
 
-    .labels {
+    .fader-labels {
       display: flex;
       justify-content: space-between;
-      padding: 0 10%;
-      font-size: 0.8rem;
-      color: #888;
-      margin-top: 8px;
+      padding: 0 15%;
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      margin-top: 6px;
     }
 
+    /* Action & Scoring */
     .actions {
-      margin-top: 25px;
+      margin-top: 20px;
       text-align: center;
     }
 
     .btn-submit {
-      background: linear-gradient(45deg, #ff007f, #00f2fe);
-      padding: 15px 40px;
-      font-size: 1.1rem;
-      width: auto;
+      background: var(--cyan);
+      color: #000;
+      border: none;
+      padding: 12px 32px;
+      font-weight: 700;
+      border-radius: 20px;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: opacity 0.2s;
     }
 
+    .btn-submit:hover { opacity: 0.85; }
+
     .score-box {
-      margin-top: 25px;
-      background: #121214;
-      border-radius: 8px;
+      margin-top: 20px;
+      background: #0d0d11;
+      border: 1px solid var(--border);
+      border-radius: 6px;
       padding: 15px;
       display: none;
-      text-align: left;
     }
-    .score-header { font-size: 1.5rem; color: #00f2fe; font-weight: bold; }
-    .score-log { color: #aaa; font-size: 0.9rem; margin-top: 10px; }
+
+    .score-header {
+      font-size: 1.2rem;
+      color: var(--cyan);
+      font-weight: bold;
+    }
+
+    .score-log {
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      margin-top: 8px;
+    }
   </style>
 </head>
 <body>
 
   <h1>DJ TRANSITION CLASH</h1>
-  <p class="subtitle">Full Mixer Control: Volume, 3-Band EQ, and Auto-BPM Detection!</p>
+  <p class="subtitle">MINIMALIST PRO CONSOLE</p>
 
-  <div class="dj-booth">
+  <div class="dj-console">
     <div class="decks">
+      
       <!-- DECK A -->
-      <div class="deck deck-a">
-        <div class="deck-title deck-a-title">DECK A</div>
-        <div id="bpmA" class="bpm-badge">BPM: --</div>
+      <div class="deck">
+        <div class="deck-header">
+          <span class="deck-title">DECK A</span>
+          <span id="bpmA" class="bpm-badge">-- BPM</span>
+        </div>
+        <div class="waveform-card">
+          <canvas id="waveA"></canvas>
+        </div>
         <input type="file" id="fileA" class="file-input" accept="audio/*">
-        <button id="playA" class="btn">Play Deck A</button>
+        <button id="playA" class="play-btn" disabled>&#9654;</button>
 
-        <div class="mixer-section">
-          <!-- Volume -->
-          <div class="control-group">
-            <label>VOLUME <span id="volValA">100%</span></label>
-            <input type="range" id="volA" min="0" max="1" step="0.01" value="1">
+        <div class="mixer-strip">
+          <div class="v-control">
+            <label>VOL</label>
+            <input type="range" id="volA" class="vertical" min="0" max="1" step="0.01" value="1">
           </div>
-          <!-- 3-Band EQ -->
-          <div class="eq-grid">
-            <div class="eq-knob">
-              <label>HIGH</label>
-              <input type="range" id="highA" min="-24" max="6" step="1" value="0">
-            </div>
-            <div class="eq-knob">
-              <label>MID</label>
-              <input type="range" id="midA" min="-24" max="6" step="1" value="0">
-            </div>
-            <div class="eq-knob">
-              <label>LOW</label>
-              <input type="range" id="lowA" min="-24" max="6" step="1" value="0">
-            </div>
+          <div class="v-control">
+            <label>HIGH</label>
+            <input type="range" id="highA" class="vertical" min="-24" max="6" step="1" value="0">
+          </div>
+          <div class="v-control">
+            <label>MID</label>
+            <input type="range" id="midA" class="vertical" min="-24" max="6" step="1" value="0">
+          </div>
+          <div class="v-control">
+            <label>LOW</label>
+            <input type="range" id="lowA" class="vertical" min="-24" max="6" step="1" value="0">
           </div>
         </div>
       </div>
 
       <!-- DECK B -->
-      <div class="deck deck-b">
-        <div class="deck-title deck-b-title">DECK B</div>
-        <div id="bpmB" class="bpm-badge">BPM: --</div>
+      <div class="deck">
+        <div class="deck-header">
+          <span class="deck-title">DECK B</span>
+          <span id="bpmB" class="bpm-badge">-- BPM</span>
+        </div>
+        <div class="waveform-card">
+          <canvas id="waveB"></canvas>
+        </div>
         <input type="file" id="fileB" class="file-input" accept="audio/*">
-        <button id="playB" class="btn">Play Deck B</button>
+        <button id="playB" class="play-btn" disabled>&#9654;</button>
 
-        <div class="mixer-section">
-          <!-- Volume -->
-          <div class="control-group">
-            <label>VOLUME <span id="volValB">100%</span></label>
-            <input type="range" id="volB" min="0" max="1" step="0.01" value="1">
+        <div class="mixer-strip">
+          <div class="v-control">
+            <label>VOL</label>
+            <input type="range" id="volB" class="vertical" min="0" max="1" step="0.01" value="1">
           </div>
-          <!-- 3-Band EQ -->
-          <div class="eq-grid">
-            <div class="eq-knob">
-              <label>HIGH</label>
-              <input type="range" id="highB" min="-24" max="6" step="1" value="0">
-            </div>
-            <div class="eq-knob">
-              <label>MID</label>
-              <input type="range" id="midB" min="-24" max="6" step="1" value="0">
-            </div>
-            <div class="eq-knob">
-              <label>LOW</label>
-              <input type="range" id="lowB" min="-24" max="6" step="1" value="0">
-            </div>
+          <div class="v-control">
+            <label>HIGH</label>
+            <input type="range" id="highB" class="vertical" min="-24" max="6" step="1" value="0">
+          </div>
+          <div class="v-control">
+            <label>MID</label>
+            <input type="range" id="midB" class="vertical" min="-24" max="6" step="1" value="0">
+          </div>
+          <div class="v-control">
+            <label>LOW</label>
+            <input type="range" id="lowB" class="vertical" min="-24" max="6" step="1" value="0">
           </div>
         </div>
       </div>
+
     </div>
 
     <!-- CROSSFADER -->
-    <div class="crossfader-container">
-      <label style="font-weight: bold;">CROSSFADER</label>
-      <br><br>
+    <div class="crossfader-panel">
+      <label>CROSSFADER</label><br>
       <input type="range" id="fader" class="crossfader-slider" min="0" max="1" step="0.01" value="0">
-      <div class="labels">
-        <span>100% Deck A</span>
-        <span>50/50 Mix</span>
-        <span>100% Deck B</span>
+      <div class="fader-labels">
+        <span>DECK A</span>
+        <span>MIX</span>
+        <span>DECK B</span>
       </div>
     </div>
 
-    <!-- SUBMIT FOR SCORING -->
     <div class="actions">
-      <button id="submitBtn" class="btn btn-submit">Submit Transition to AI</button>
+      <button id="submitBtn" class="btn-submit">EVALUATE TRANSITION</button>
     </div>
 
-    <!-- SCORE RESULTS -->
     <div id="scoreBox" class="score-box">
-      <div id="scoreHeader" class="score-header">Score: 0 / 100</div>
+      <div id="scoreHeader" class="score-header">SCORE: 0 / 100</div>
       <div id="scoreLog" class="score-log"></div>
     </div>
   </div>
 
   <script>
-    let playerA, playerB, eqA, eqB, volNodeA, volNodeB, crossFade;
-    let transitionStartTime = 0;
-    let transitionEndTime = 0;
+    let playerA, playerB, eqA, eqB, volA, volB, crossFade;
+    let transitionStart = 0, transitionEnd = 0;
 
     function getCrossFade() {
-      if (!crossFade) {
-        crossFade = new Tone.CrossFade(0).toDestination();
-      }
+      if (!crossFade) crossFade = new Tone.CrossFade(0).toDestination();
       return crossFade;
     }
 
-    // BPM Calculation Engine (Peak Detection)
-    async function calculateBPM(buffer) {
-      const audioData = buffer.getChannelData(0);
-      const sampleRate = buffer.sampleRate;
+    // Waveform Renderer Engine
+    function drawWaveform(canvasId, buffer) {
+      const canvas = document.getElementById(canvasId);
+      const ctx = canvas.getContext('2d');
+      const width = canvas.width = canvas.offsetWidth;
+      const height = canvas.height = canvas.offsetHeight;
       
-      // Look for energetic peaks across a 10-second sample window
+      const data = buffer.getChannelData(0);
+      const step = Math.ceil(data.length / width);
+      const amp = height / 2;
+
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = "#00f2fe";
+
+      for (let i = 0; i < width; i++) {
+        let min = 1.0, max = -1.0;
+        for (let j = 0; j < step; j++) {
+          const datum = data[(i * step) + j];
+          if (datum < min) min = datum;
+          if (datum > max) max = datum;
+        }
+        ctx.fillRect(i, (1 + min) * amp, 1, Math.max(1, (max - min) * amp));
+      }
+    }
+
+    // BPM Calculation
+    function estimateBPM(buffer) {
+      const rate = buffer.sampleRate;
+      const data = buffer.getChannelData(0);
       let peaks = [];
-      const step = Math.floor(sampleRate / 100);
-      for (let i = 0; i < Math.min(audioData.length, sampleRate * 10); i += step) {
-        if (Math.abs(audioData[i]) > 0.4) {
-          peaks.push(i);
-        }
+      for (let i = 0; i < Math.min(data.length, rate * 10); i += Math.floor(rate / 100)) {
+        if (Math.abs(data[i]) > 0.45) peaks.push(i);
       }
-      
-      // Calculate average interval between transient peaks
-      if (peaks.length < 2) return Math.floor(Math.random() * (130 - 120) + 120); // fallback range
+      if (peaks.length < 2) return 124;
       let intervals = [];
-      for (let i = 1; i < peaks.length; i++) {
-        intervals.push(peaks[i] - peaks[i - 1]);
-      }
-      const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
-      let calculatedBpm = Math.round((sampleRate / avgInterval) * 60 / 100);
-
-      // Clamp into standard DJ music range (70 - 170 BPM)
-      while (calculatedBpm < 70) calculatedBpm *= 2;
-      while (calculatedBpm > 170) calculatedBpm /= 2;
-      return Math.round(calculatedBpm);
+      for (let i = 1; i < peaks.length; i++) intervals.push(peaks[i] - peaks[i - 1]);
+      let bpm = Math.round((rate / (intervals.reduce((a, b) => a + b) / intervals.length)) * 0.6);
+      while (bpm < 80) bpm *= 2;
+      while (bpm > 160) bpm /= 2;
+      return Math.round(bpm);
     }
 
-    // Build Signal Chain: Player -> EQ -> Volume -> Crossfader
-    function setupDeckA(url, onReady) {
-      if (playerA) playerA.dispose();
-      if (eqA) eqA.dispose();
-      if (volNodeA) volNodeA.dispose();
+    // Setup Audio Chains
+    function loadDeck(file, isDeckA) {
+      const btn = document.getElementById(isDeckA ? 'playA' : 'playB');
+      btn.disabled = true;
 
-      eqA = new Tone.EQ3(0, 0, 0);
-      volNodeA = new Tone.Volume(0);
+      const url = URL.createObjectURL(file);
+      const eq = new Tone.EQ3(0, 0, 0);
+      const vol = new Tone.Volume(0);
 
-      playerA = new Tone.Player({
+      const player = new Tone.Player({
         url: url,
         loop: true,
-        onload: async () => {
-          playerA.chain(eqA, volNodeA, getCrossFade().a);
-          const bpm = await calculateBPM(playerA.buffer);
-          document.getElementById('bpmA').innerText = `BPM: ~${bpm}`;
-          onReady();
+        onload: () => {
+          player.chain(eq, vol, isDeckA ? getCrossFade().a : getCrossFade().b);
+          drawWaveform(isDeckA ? 'waveA' : 'waveB', player.buffer);
+          document.getElementById(isDeckA ? 'bpmA' : 'bpmB').innerText = `${estimateBPM(player.buffer)} BPM`;
+          btn.disabled = false;
         }
       });
+
+      if (isDeckA) { playerA = player; eqA = eq; volA = vol; }
+      else { playerB = player; eqB = eq; volB = vol; }
     }
 
-    function setupDeckB(url, onReady) {
-      if (playerB) playerB.dispose();
-      if (eqB) eqB.dispose();
-      if (volNodeB) volNodeB.dispose();
+    // File Upload Listeners
+    document.getElementById('fileA').addEventListener('change', (e) => { if (e.target.files[0]) loadDeck(e.target.files[0], true); });
+    document.getElementById('fileB').addEventListener('change', (e) => { if (e.target.files[0]) loadDeck(e.target.files[0], false); });
 
-      eqB = new Tone.EQ3(0, 0, 0);
-      volNodeB = new Tone.Volume(0);
-
-      playerB = new Tone.Player({
-        url: url,
-        loop: true,
-        onload: async () => {
-          playerB.chain(eqB, volNodeB, getCrossFade().b);
-          const bpm = await calculateBPM(playerB.buffer);
-          document.getElementById('bpmB').innerText = `BPM: ~${bpm}`;
-          onReady();
-        }
-      });
-    }
-
-    // Upload Handlers
-    document.getElementById('fileA').addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const btn = document.getElementById('playA');
-      btn.innerText = "Analyzing BPM...";
-      btn.disabled = true;
-      setupDeckA(URL.createObjectURL(file), () => {
-        btn.innerText = "Play Deck A";
-        btn.disabled = false;
-      });
-    });
-
-    document.getElementById('fileB').addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const btn = document.getElementById('playB');
-      btn.innerText = "Analyzing BPM...";
-      btn.disabled = true;
-      setupDeckB(URL.createObjectURL(file), () => {
-        btn.innerText = "Play Deck B";
-        btn.disabled = false;
-      });
-    });
-
-    // Play Controls
+    // Transport Buttons
     document.getElementById('playA').addEventListener('click', async () => {
       await Tone.start();
-      if (!playerA || !playerA.loaded) return alert("Upload a track for Deck A first!");
-      if (playerA.state === "started") {
-        playerA.stop();
-        document.getElementById('playA').innerText = "Play Deck A";
-      } else {
-        playerA.start();
-        document.getElementById('playA').innerText = "Stop Deck A";
-      }
+      if (playerA.state === "started") { playerA.stop(); document.getElementById('playA').innerHTML = "&#9654;"; }
+      else { playerA.start(); document.getElementById('playA').innerHTML = "&#10074;&#10074;"; }
     });
 
     document.getElementById('playB').addEventListener('click', async () => {
       await Tone.start();
-      if (!playerB || !playerB.loaded) return alert("Upload a track for Deck B first!");
-      if (playerB.state === "started") {
-        playerB.stop();
-        document.getElementById('playB').innerText = "Play Deck B";
-      } else {
-        playerB.start();
-        document.getElementById('playB').innerText = "Stop Deck B";
-      }
+      if (playerB.state === "started") { playerB.stop(); document.getElementById('playB').innerHTML = "&#9654;"; }
+      else { playerB.start(); document.getElementById('playB').innerHTML = "&#10074;&#10074;"; }
     });
 
-    // Volume Sliders Logic
-    document.getElementById('volA').addEventListener('input', (e) => {
-      const val = parseFloat(e.target.value);
-      document.getElementById('volValA').innerText = `${Math.round(val * 100)}%`;
-      if (volNodeA) volNodeA.volume.value = Tone.gainToDb(val);
-    });
+    // Mixer Hardware Listeners
+    document.getElementById('volA').addEventListener('input', (e) => { if (volA) volA.volume.value = Tone.gainToDb(parseFloat(e.target.value)); });
+    document.getElementById('volB').addEventListener('input', (e) => { if (volB) volB.volume.value = Tone.gainToDb(parseFloat(e.target.value)); });
 
-    document.getElementById('volB').addEventListener('input', (e) => {
-      const val = parseFloat(e.target.value);
-      document.getElementById('volValB').innerText = `${Math.round(val * 100)}%`;
-      if (volNodeB) volNodeB.volume.value = Tone.gainToDb(val);
-    });
-
-    // 3-Band EQ Controls (Deck A)
     document.getElementById('highA').addEventListener('input', (e) => { if (eqA) eqA.high.value = parseFloat(e.target.value); });
     document.getElementById('midA').addEventListener('input', (e) => { if (eqA) eqA.mid.value = parseFloat(e.target.value); });
     document.getElementById('lowA').addEventListener('input', (e) => { if (eqA) eqA.low.value = parseFloat(e.target.value); });
 
-    // 3-Band EQ Controls (Deck B)
     document.getElementById('highB').addEventListener('input', (e) => { if (eqB) eqB.high.value = parseFloat(e.target.value); });
     document.getElementById('midB').addEventListener('input', (e) => { if (eqB) eqB.mid.value = parseFloat(e.target.value); });
     document.getElementById('lowB').addEventListener('input', (e) => { if (eqB) eqB.low.value = parseFloat(e.target.value); });
 
     // Crossfader Tracking
-    const faderInput = document.getElementById('fader');
-    faderInput.addEventListener('input', (e) => {
+    const fader = document.getElementById('fader');
+    fader.addEventListener('input', (e) => {
       const val = parseFloat(e.target.value);
       if (crossFade) crossFade.fade.value = val;
-
-      if (val > 0.05 && transitionStartTime === 0) transitionStartTime = Date.now();
-      if (val >= 0.95 && transitionStartTime !== 0 && transitionEndTime === 0) transitionEndTime = Date.now();
+      if (val > 0.05 && transitionStart === 0) transitionStart = Date.now();
+      if (val >= 0.95 && transitionStart !== 0 && transitionEnd === 0) transitionEnd = Date.now();
     });
 
-    // Scoring Engine
+    // Multi-Metric AI Transition Evaluator
     document.getElementById('submitBtn').addEventListener('click', () => {
       let score = 100;
       let logs = [];
-      const currentFaderVal = parseFloat(faderInput.value);
 
-      if (currentFaderVal < 0.9) {
-        score -= 40;
-        logs.push("❌ Failed to complete transition to Deck B (-40 pts)");
+      const faderVal = parseFloat(fader.value);
+      const lowAVal = eqA ? eqA.low.value : 0;
+      const lowBVal = eqB ? eqB.low.value : 0;
+
+      // 1. Crossfader Execution
+      if (faderVal < 0.9) {
+        score -= 35;
+        logs.push("❌ Incomplete transition: Crossfader never reached Deck B (-35 pts)");
       } else {
-        logs.push("✅ Full transition completed to Deck B!");
+        logs.push("✅ Full crossfader sweep completed.");
       }
 
-      if (transitionStartTime && transitionEndTime) {
-        const duration = (transitionEndTime - transitionStartTime) / 1000;
-        logs.push(`⏱️ Transition Speed: ${duration.toFixed(2)}s`);
-        if (duration < 1.5) { score -= 30; logs.push("⚠️ Too fast! Abrupt blend (-30 pts)"); }
-        else if (duration > 8.0) { score -= 20; logs.push("⚠️ Too slow! Dragginess detected (-20 pts)"); }
-        else { logs.push("⭐ Excellent transition speed!"); }
+      // 2. Duration Quality
+      if (transitionStart && transitionEnd) {
+        const duration = (transitionEnd - transitionStart) / 1000;
+        logs.push(`⏱️ Duration: ${duration.toFixed(2)}s`);
+        if (duration < 2.0) { score -= 25; logs.push("⚠️ Transition too fast/abrupt (-25 pts)"); }
+        else if (duration > 9.0) { score -= 15; logs.push("⚠️ Transition too slow (-15 pts)"); }
+        else { logs.push("⭐ Optimal transition pacing."); }
       } else {
-        score -= 50;
-        logs.push("❌ No smooth crossfader movement detected (-50 pts)");
+        score -= 40;
+        logs.push("❌ Crossfader movement missing (-40 pts)");
+      }
+
+      // 3. Frequency / Bass Clash Engine
+      if (lowAVal > -6 && lowBVal > -6 && faderVal > 0.3 && faderVal < 0.7) {
+        score -= 20;
+        logs.push("⚠️ Low-end clash detected! Both sub-bass EQ knobs were open during the blend (-20 pts)");
+      } else {
+        logs.push("⭐ Clean EQ separation (no low-end clash).");
       }
 
       score = Math.max(0, score);
       document.getElementById('scoreBox').style.display = "block";
-      document.getElementById('scoreHeader').innerText = `Final Score: ${score} / 100`;
-      document.getElementById('scoreLog').innerHTML = logs.map(l => `<p style="margin: 4px 0;">${l}</p>`).join('');
+      document.getElementById('scoreHeader').innerText = `SCORE: ${score} / 100`;
+      document.getElementById('scoreLog').innerHTML = logs.map(l => `<p style="margin: 3px 0;">${l}</p>`).join('');
     });
   </script>
 </body>
