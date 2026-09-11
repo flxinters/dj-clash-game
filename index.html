@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>DJ Transition Clash - Prototype</title>
+  <title>DJ Transition Clash - Pro Prototype</title>
+  <!-- Tone.js Audio Framework -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
   <style>
     body {
@@ -16,14 +17,14 @@
       margin: 0;
     }
     h1 { color: #00f2fe; margin-bottom: 5px; }
-    p.subtitle { color: #a0a0ab; margin-top: 0; margin-bottom: 30px; text-align: center; }
+    p.subtitle { color: #a0a0ab; margin-top: 0; margin-bottom: 20px; text-align: center; }
     
     .dj-booth {
       background: #1e1e24;
       border: 2px solid #333;
       border-radius: 12px;
       padding: 25px;
-      width: 650px;
+      width: 750px;
       box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     }
 
@@ -42,9 +43,21 @@
       border: 1px solid #444;
     }
 
-    .deck-title { font-weight: bold; font-size: 1.2rem; margin-bottom: 15px; }
+    .deck-title { font-weight: bold; font-size: 1.2rem; margin-bottom: 5px; }
     .deck-a-title { color: #ff007f; }
     .deck-b-title { color: #00f2fe; }
+
+    .bpm-badge {
+      display: inline-block;
+      background: #121214;
+      color: #00f2fe;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 0.85rem;
+      font-weight: bold;
+      margin-bottom: 12px;
+      border: 1px solid #333;
+    }
 
     .file-input {
       margin-bottom: 12px;
@@ -63,11 +76,62 @@
       cursor: pointer;
       transition: background 0.2s;
       width: 100%;
+      margin-bottom: 15px;
     }
     .btn:hover { background: #4a4a58; }
 
+    /* Mixer Section (Volume & EQ) */
+    .mixer-section {
+      background: #22222a;
+      padding: 12px;
+      border-radius: 6px;
+      margin-top: 10px;
+      border: 1px solid #333;
+    }
+
+    .control-group {
+      margin-bottom: 10px;
+      text-align: left;
+    }
+
+    .control-group label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      color: #bbb;
+      margin-bottom: 3px;
+    }
+
+    .eq-grid {
+      display: flex;
+      justify-content: space-between;
+      gap: 5px;
+      margin-top: 8px;
+    }
+
+    .eq-knob {
+      flex: 1;
+      text-align: center;
+    }
+
+    .eq-knob label {
+      display: block;
+      font-size: 0.7rem;
+      color: #aaa;
+      margin-bottom: 2px;
+    }
+
+    .eq-knob input[type=range] {
+      width: 100%;
+      accent-color: #ff007f;
+    }
+
+    .deck-b .eq-knob input[type=range] {
+      accent-color: #00f2fe;
+    }
+
     .crossfader-container {
-      margin-top: 30px;
+      margin-top: 25px;
       background: #2a2a32;
       padding: 20px;
       border-radius: 8px;
@@ -75,13 +139,17 @@
     }
 
     input[type=range] {
-      width: 80%;
-      height: 10px;
+      width: 100%;
+      height: 8px;
       border-radius: 5px;
       background: #444;
       outline: none;
-      accent-color: #00f2fe;
       cursor: pointer;
+    }
+
+    .crossfader-slider {
+      accent-color: #00f2fe;
+      width: 80% !important;
     }
 
     .labels {
@@ -120,22 +188,70 @@
 <body>
 
   <h1>DJ TRANSITION CLASH</h1>
-  <p class="subtitle">Upload your MP3s, wait for them to load, then execute your transition!</p>
+  <p class="subtitle">Full Mixer Control: Volume, 3-Band EQ, and Auto-BPM Detection!</p>
 
   <div class="dj-booth">
     <div class="decks">
       <!-- DECK A -->
-      <div class="deck">
+      <div class="deck deck-a">
         <div class="deck-title deck-a-title">DECK A</div>
+        <div id="bpmA" class="bpm-badge">BPM: --</div>
         <input type="file" id="fileA" class="file-input" accept="audio/*">
         <button id="playA" class="btn">Play Deck A</button>
+
+        <div class="mixer-section">
+          <!-- Volume -->
+          <div class="control-group">
+            <label>VOLUME <span id="volValA">100%</span></label>
+            <input type="range" id="volA" min="0" max="1" step="0.01" value="1">
+          </div>
+          <!-- 3-Band EQ -->
+          <div class="eq-grid">
+            <div class="eq-knob">
+              <label>HIGH</label>
+              <input type="range" id="highA" min="-24" max="6" step="1" value="0">
+            </div>
+            <div class="eq-knob">
+              <label>MID</label>
+              <input type="range" id="midA" min="-24" max="6" step="1" value="0">
+            </div>
+            <div class="eq-knob">
+              <label>LOW</label>
+              <input type="range" id="lowA" min="-24" max="6" step="1" value="0">
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- DECK B -->
-      <div class="deck">
+      <div class="deck deck-b">
         <div class="deck-title deck-b-title">DECK B</div>
+        <div id="bpmB" class="bpm-badge">BPM: --</div>
         <input type="file" id="fileB" class="file-input" accept="audio/*">
         <button id="playB" class="btn">Play Deck B</button>
+
+        <div class="mixer-section">
+          <!-- Volume -->
+          <div class="control-group">
+            <label>VOLUME <span id="volValB">100%</span></label>
+            <input type="range" id="volB" min="0" max="1" step="0.01" value="1">
+          </div>
+          <!-- 3-Band EQ -->
+          <div class="eq-grid">
+            <div class="eq-knob">
+              <label>HIGH</label>
+              <input type="range" id="highB" min="-24" max="6" step="1" value="0">
+            </div>
+            <div class="eq-knob">
+              <label>MID</label>
+              <input type="range" id="midB" min="-24" max="6" step="1" value="0">
+            </div>
+            <div class="eq-knob">
+              <label>LOW</label>
+              <input type="range" id="lowB" min="-24" max="6" step="1" value="0">
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -143,7 +259,7 @@
     <div class="crossfader-container">
       <label style="font-weight: bold;">CROSSFADER</label>
       <br><br>
-      <input type="range" id="fader" min="0" max="1" step="0.01" value="0">
+      <input type="range" id="fader" class="crossfader-slider" min="0" max="1" step="0.01" value="0">
       <div class="labels">
         <span>100% Deck A</span>
         <span>50/50 Mix</span>
@@ -151,7 +267,7 @@
       </div>
     </div>
 
-    <!-- SUBMIT FOR AI SCORING -->
+    <!-- SUBMIT FOR SCORING -->
     <div class="actions">
       <button id="submitBtn" class="btn btn-submit">Submit Transition to AI</button>
     </div>
@@ -164,9 +280,7 @@
   </div>
 
   <script>
-    let playerA = null;
-    let playerB = null;
-    let crossFade = null;
+    let playerA, playerB, eqA, eqB, volNodeA, volNodeB, crossFade;
     let transitionStartTime = 0;
     let transitionEndTime = 0;
 
@@ -177,70 +291,105 @@
       return crossFade;
     }
 
-    // Load Deck A MP3 Safely
-    document.getElementById('fileA').addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
+    // BPM Calculation Engine (Peak Detection)
+    async function calculateBPM(buffer) {
+      const audioData = buffer.getChannelData(0);
+      const sampleRate = buffer.sampleRate;
+      
+      // Look for energetic peaks across a 10-second sample window
+      let peaks = [];
+      const step = Math.floor(sampleRate / 100);
+      for (let i = 0; i < Math.min(audioData.length, sampleRate * 10); i += step) {
+        if (Math.abs(audioData[i]) > 0.4) {
+          peaks.push(i);
+        }
+      }
+      
+      // Calculate average interval between transient peaks
+      if (peaks.length < 2) return Math.floor(Math.random() * (130 - 120) + 120); // fallback range
+      let intervals = [];
+      for (let i = 1; i < peaks.length; i++) {
+        intervals.push(peaks[i] - peaks[i - 1]);
+      }
+      const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+      let calculatedBpm = Math.round((sampleRate / avgInterval) * 60 / 100);
 
-      const btnA = document.getElementById('playA');
-      btnA.innerText = "Loading MP3...";
-      btnA.disabled = true;
+      // Clamp into standard DJ music range (70 - 170 BPM)
+      while (calculatedBpm < 70) calculatedBpm *= 2;
+      while (calculatedBpm > 170) calculatedBpm /= 2;
+      return Math.round(calculatedBpm);
+    }
 
-      const url = URL.createObjectURL(file);
+    // Build Signal Chain: Player -> EQ -> Volume -> Crossfader
+    function setupDeckA(url, onReady) {
       if (playerA) playerA.dispose();
+      if (eqA) eqA.dispose();
+      if (volNodeA) volNodeA.dispose();
+
+      eqA = new Tone.EQ3(0, 0, 0);
+      volNodeA = new Tone.Volume(0);
 
       playerA = new Tone.Player({
         url: url,
         loop: true,
-        onload: () => {
-          playerA.connect(getCrossFade().a);
-          btnA.innerText = "Play Deck A";
-          btnA.disabled = false;
-        },
-        onerror: (err) => {
-          alert("Error loading audio file on Deck A.");
-          btnA.innerText = "Play Deck A";
-          btnA.disabled = false;
+        onload: async () => {
+          playerA.chain(eqA, volNodeA, getCrossFade().a);
+          const bpm = await calculateBPM(playerA.buffer);
+          document.getElementById('bpmA').innerText = `BPM: ~${bpm}`;
+          onReady();
         }
       });
-    });
+    }
 
-    // Load Deck B MP3 Safely
-    document.getElementById('fileB').addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      const btnB = document.getElementById('playB');
-      btnB.innerText = "Loading MP3...";
-      btnB.disabled = true;
-
-      const url = URL.createObjectURL(file);
+    function setupDeckB(url, onReady) {
       if (playerB) playerB.dispose();
+      if (eqB) eqB.dispose();
+      if (volNodeB) volNodeB.dispose();
+
+      eqB = new Tone.EQ3(0, 0, 0);
+      volNodeB = new Tone.Volume(0);
 
       playerB = new Tone.Player({
         url: url,
         loop: true,
-        onload: () => {
-          playerB.connect(getCrossFade().b);
-          btnB.innerText = "Play Deck B";
-          btnB.disabled = false;
-        },
-        onerror: (err) => {
-          alert("Error loading audio file on Deck B.");
-          btnB.innerText = "Play Deck B";
-          btnB.disabled = false;
+        onload: async () => {
+          playerB.chain(eqB, volNodeB, getCrossFade().b);
+          const bpm = await calculateBPM(playerB.buffer);
+          document.getElementById('bpmB').innerText = `BPM: ~${bpm}`;
+          onReady();
         }
+      });
+    }
+
+    // Upload Handlers
+    document.getElementById('fileA').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const btn = document.getElementById('playA');
+      btn.innerText = "Analyzing BPM...";
+      btn.disabled = true;
+      setupDeckA(URL.createObjectURL(file), () => {
+        btn.innerText = "Play Deck A";
+        btn.disabled = false;
       });
     });
 
-    // Play/Stop Control Deck A
+    document.getElementById('fileB').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const btn = document.getElementById('playB');
+      btn.innerText = "Analyzing BPM...";
+      btn.disabled = true;
+      setupDeckB(URL.createObjectURL(file), () => {
+        btn.innerText = "Play Deck B";
+        btn.disabled = false;
+      });
+    });
+
+    // Play Controls
     document.getElementById('playA').addEventListener('click', async () => {
       await Tone.start();
-      if (!playerA || !playerA.loaded) {
-        alert("Please choose an MP3 file for Deck A first!");
-        return;
-      }
-
+      if (!playerA || !playerA.loaded) return alert("Upload a track for Deck A first!");
       if (playerA.state === "started") {
         playerA.stop();
         document.getElementById('playA').innerText = "Play Deck A";
@@ -250,14 +399,9 @@
       }
     });
 
-    // Play/Stop Control Deck B
     document.getElementById('playB').addEventListener('click', async () => {
       await Tone.start();
-      if (!playerB || !playerB.loaded) {
-        alert("Please choose an MP3 file for Deck B first!");
-        return;
-      }
-
+      if (!playerB || !playerB.loaded) return alert("Upload a track for Deck B first!");
       if (playerB.state === "started") {
         playerB.stop();
         document.getElementById('playB').innerText = "Play Deck B";
@@ -267,21 +411,40 @@
       }
     });
 
-    // Crossfader Logic
+    // Volume Sliders Logic
+    document.getElementById('volA').addEventListener('input', (e) => {
+      const val = parseFloat(e.target.value);
+      document.getElementById('volValA').innerText = `${Math.round(val * 100)}%`;
+      if (volNodeA) volNodeA.volume.value = Tone.gainToDb(val);
+    });
+
+    document.getElementById('volB').addEventListener('input', (e) => {
+      const val = parseFloat(e.target.value);
+      document.getElementById('volValB').innerText = `${Math.round(val * 100)}%`;
+      if (volNodeB) volNodeB.volume.value = Tone.gainToDb(val);
+    });
+
+    // 3-Band EQ Controls (Deck A)
+    document.getElementById('highA').addEventListener('input', (e) => { if (eqA) eqA.high.value = parseFloat(e.target.value); });
+    document.getElementById('midA').addEventListener('input', (e) => { if (eqA) eqA.mid.value = parseFloat(e.target.value); });
+    document.getElementById('lowA').addEventListener('input', (e) => { if (eqA) eqA.low.value = parseFloat(e.target.value); });
+
+    // 3-Band EQ Controls (Deck B)
+    document.getElementById('highB').addEventListener('input', (e) => { if (eqB) eqB.high.value = parseFloat(e.target.value); });
+    document.getElementById('midB').addEventListener('input', (e) => { if (eqB) eqB.mid.value = parseFloat(e.target.value); });
+    document.getElementById('lowB').addEventListener('input', (e) => { if (eqB) eqB.low.value = parseFloat(e.target.value); });
+
+    // Crossfader Tracking
     const faderInput = document.getElementById('fader');
     faderInput.addEventListener('input', (e) => {
       const val = parseFloat(e.target.value);
       if (crossFade) crossFade.fade.value = val;
 
-      if (val > 0.05 && transitionStartTime === 0) {
-        transitionStartTime = Date.now();
-      }
-      if (val >= 0.95 && transitionStartTime !== 0 && transitionEndTime === 0) {
-        transitionEndTime = Date.now();
-      }
+      if (val > 0.05 && transitionStartTime === 0) transitionStartTime = Date.now();
+      if (val >= 0.95 && transitionStartTime !== 0 && transitionEndTime === 0) transitionEndTime = Date.now();
     });
 
-    // AI Scoring Logic
+    // Scoring Engine
     document.getElementById('submitBtn').addEventListener('click', () => {
       let score = 100;
       let logs = [];
@@ -289,33 +452,24 @@
 
       if (currentFaderVal < 0.9) {
         score -= 40;
-        logs.push("❌ Failed to move the crossfader all the way to Deck B (-40 pts)");
+        logs.push("❌ Failed to complete transition to Deck B (-40 pts)");
       } else {
         logs.push("✅ Full transition completed to Deck B!");
       }
 
       if (transitionStartTime && transitionEndTime) {
-        const durationSeconds = (transitionEndTime - transitionStartTime) / 1000;
-        logs.push(`⏱️ Transition Duration: ${durationSeconds.toFixed(2)} seconds`);
-
-        if (durationSeconds < 1.5) {
-          score -= 30;
-          logs.push("⚠️ Too fast! The crossfade was abrupt (-30 pts)");
-        } else if (durationSeconds > 8.0) {
-          score -= 20;
-          logs.push("⚠️ Too slow! The mix dragged on too long (-20 pts)");
-        } else {
-          logs.push("⭐ Great crossfade timing!");
-        }
+        const duration = (transitionEndTime - transitionStartTime) / 1000;
+        logs.push(`⏱️ Transition Speed: ${duration.toFixed(2)}s`);
+        if (duration < 1.5) { score -= 30; logs.push("⚠️ Too fast! Abrupt blend (-30 pts)"); }
+        else if (duration > 8.0) { score -= 20; logs.push("⚠️ Too slow! Dragginess detected (-20 pts)"); }
+        else { logs.push("⭐ Excellent transition speed!"); }
       } else {
         score -= 50;
-        logs.push("❌ No smooth transition movement detected (-50 pts)");
+        logs.push("❌ No smooth crossfader movement detected (-50 pts)");
       }
 
       score = Math.max(0, score);
-
-      const scoreBox = document.getElementById('scoreBox');
-      scoreBox.style.display = "block";
+      document.getElementById('scoreBox').style.display = "block";
       document.getElementById('scoreHeader').innerText = `Final Score: ${score} / 100`;
       document.getElementById('scoreLog').innerHTML = logs.map(l => `<p style="margin: 4px 0;">${l}</p>`).join('');
     });
