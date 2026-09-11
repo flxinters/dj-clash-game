@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>DJ Transition Clash - Prototype</title>
+  <!-- Load Tone.js Audio Framework -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+  <style>
+    body {
+      background-color: #121214;
+      color: #ffffff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 30px;
+      margin: 0;
+    }
+    h1 { color: #00f2fe; margin-bottom: 5px; }
+    p.subtitle { color: #a0a0ab; margin-top: 0; margin-bottom: 30px; text-align: center; }
+    
+    .dj-booth {
+      background: #1e1e24;
+      border: 2px solid #333;
+      border-radius: 12px;
+      padding: 25px;
+      width: 650px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+
+    .decks {
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .deck {
+      background: #2a2a32;
+      border-radius: 8px;
+      padding: 20px;
+      flex: 1;
+      text-align: center;
+      border: 1px solid #444;
+    }
+
+    .deck-title { font-weight: bold; font-size: 1.2rem; margin-bottom: 15px; }
+    .deck-a-title { color: #ff007f; }
+    .deck-b-title { color: #00f2fe; }
+
+    .file-input {
+      margin-bottom: 12px;
+      font-size: 0.8rem;
+      width: 100%;
+      color: #aaa;
+    }
+
+    .btn {
+      background: #3a3a46;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.2s;
+      width: 100%;
+    }
+    .btn:hover { background: #4a4a58; }
+
+    .crossfader-container {
+      margin-top: 30px;
+      background: #2a2a32;
+      padding: 20px;
+      border-radius: 8px;
+      text-align: center;
+    }
+
+    input[type=range] {
+      width: 80%;
+      height: 10px;
+      border-radius: 5px;
+      background: #444;
+      outline: none;
+      accent-color: #00f2fe;
+      cursor: pointer;
+    }
+
+    .labels {
+      display: flex;
+      justify-content: space-between;
+      padding: 0 10%;
+      font-size: 0.8rem;
+      color: #888;
+      margin-top: 8px;
+    }
+
+    .actions {
+      margin-top: 25px;
+      text-align: center;
+    }
+
+    .btn-submit {
+      background: linear-gradient(45deg, #ff007f, #00f2fe);
+      padding: 15px 40px;
+      font-size: 1.1rem;
+      width: auto;
+    }
+
+    .score-box {
+      margin-top: 25px;
+      background: #121214;
+      border-radius: 8px;
+      padding: 15px;
+      display: none;
+      text-align: left;
+    }
+    .score-header { font-size: 1.5rem; color: #00f2fe; font-weight: bold; }
+    .score-log { color: #aaa; font-size: 0.9rem; margin-top: 10px; }
+  </style>
+</head>
+<body>
+
+  <h1>DJ TRANSITION CLASH</h1>
+  <p class="subtitle">Upload your own MP3s or press Play to use default loops.<br>Execute a smooth 3–6 second transition from Deck A to Deck B!</p>
+
+  <div class="dj-booth">
+    <div class="decks">
+      <!-- DECK A -->
+      <div class="deck">
+        <div class="deck-title deck-a-title">DECK A</div>
+        <input type="file" id="fileA" class="file-input" accept="audio/*">
+        <button id="playA" class="btn">Play Deck A</button>
+      </div>
+
+      <!-- DECK B -->
+      <div class="deck">
+        <div class="deck-title deck-b-title">DECK B</div>
+        <input type="file" id="fileB" class="file-input" accept="audio/*">
+        <button id="playB" class="btn">Play Deck B</button>
+      </div>
+    </div>
+
+    <!-- CROSSFADER -->
+    <div class="crossfader-container">
+      <label style="font-weight: bold;">CROSSFADER</label>
+      <br><br>
+      <input type="range" id="fader" min="0" max="1" step="0.01" value="0">
+      <div class="labels">
+        <span>100% Deck A</span>
+        <span>50/50 Mix</span>
+        <span>100% Deck B</span>
+      </div>
+    </div>
+
+    <!-- SUBMIT FOR AI SCORING -->
+    <div class="actions">
+      <button id="submitBtn" class="btn btn-submit">Submit Transition to AI</button>
+    </div>
+
+    <!-- SCORE RESULTS -->
+    <div id="scoreBox" class="score-box">
+      <div id="scoreHeader" class="score-header">Score: 0 / 100</div>
+      <div id="scoreLog" class="score-log"></div>
+    </div>
+  </div>
+
+  <script>
+    let playerA, playerB, crossFade;
+    let transitionStartTime = 0;
+    let transitionEndTime = 0;
+
+    // Default backup audio streams
+    const defaultUrlA = "https://tonejs.github.io/audio/drum-samples/breakbeat.mp3";
+    const defaultUrlB = "https://tonejs.github.io/audio/drum-samples/CR78/hihat.mp3";
+
+    function initEngine() {
+      if (!crossFade) {
+        crossFade = new Tone.CrossFade(0).toDestination();
+      }
+      if (!playerA) {
+        playerA = new Tone.Player({ url: defaultUrlA, loop: true }).connect(crossFade.a);
+      }
+      if (!playerB) {
+        playerB = new Tone.Player({ url: defaultUrlB, loop: true }).connect(crossFade.b);
+      }
+    }
+
+    // Custom MP3 Upload Handler - Deck A
+    document.getElementById('fileA').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        initEngine();
+        const url = URL.createObjectURL(file);
+        if (playerA) playerA.dispose();
+        playerA = new Tone.Player({ url: url, loop: true }).connect(crossFade.a);
+        document.getElementById('playA').innerText = "Play Deck A";
+      }
+    });
+
+    // Custom MP3 Upload Handler - Deck B
+    document.getElementById('fileB').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        initEngine();
+        const url = URL.createObjectURL(file);
+        if (playerB) playerB.dispose();
+        playerB = new Tone.Player({ url: url, loop: true }).connect(crossFade.b);
+        document.getElementById('playB').innerText = "Play Deck B";
+      }
+    });
+
+    // Play/Stop Controls
+    document.getElementById('playA').addEventListener('click', async () => {
+      await Tone.start();
+      initEngine();
+      if (playerA.state === "started") {
+        playerA.stop();
+        document.getElementById('playA').innerText = "Play Deck A";
+      } else {
+        playerA.start();
+        document.getElementById('playA').innerText = "Stop Deck A";
+      }
+    });
+
+    document.getElementById('playB').addEventListener('click', async () => {
+      await Tone.start();
+      initEngine();
+      if (playerB.state === "started") {
+        playerB.stop();
+        document.getElementById('playB').innerText = "Play Deck B";
+      } else {
+        playerB.start();
+        document.getElementById('playB').innerText = "Stop Deck B";
+      }
+    });
+
+    // Crossfader Tracking
+    const faderInput = document.getElementById('fader');
+    faderInput.addEventListener('input', (e) => {
+      const val = parseFloat(e.target.value);
+      if (crossFade) crossFade.fade.value = val;
+
+      if (val > 0.05 && transitionStartTime === 0) {
+        transitionStartTime = Date.now();
+      }
+      if (val >= 0.95 && transitionStartTime !== 0 && transitionEndTime === 0) {
+        transitionEndTime = Date.now();
+      }
+    });
+
+    // AI Scoring Logic
+    document.getElementById('submitBtn').addEventListener('click', () => {
+      let score = 100;
+      let logs = [];
+      const currentFaderVal = parseFloat(faderInput.value);
+
+      if (currentFaderVal < 0.9) {
+        score -= 40;
+        logs.push("❌ Failed to move the crossfader all the way to Deck B (-40 pts)");
+      } else {
+        logs.push("✅ Full transition completed to Deck B!");
+      }
+
+      if (transitionStartTime && transitionEndTime) {
+        const durationSeconds = (transitionEndTime - transitionStartTime) / 1000;
+        logs.push(`⏱️ Transition Duration: ${durationSeconds.toFixed(2)} seconds`);
+
+        if (durationSeconds < 1.5) {
+          score -= 30;
+          logs.push("⚠️ Too fast! The crossfade was abrupt (-30 pts)");
+        } else if (durationSeconds > 8.0) {
+          score -= 20;
+          logs.push("⚠️ Too slow! The mix dragged on too long (-20 pts)");
+        } else {
+          logs.push("⭐ Great crossfade timing!");
+        }
+      } else {
+        score -= 50;
+        logs.push("❌ No smooth transition movement detected (-50 pts)");
+      }
+
+      score = Math.max(0, score);
+
+      const scoreBox = document.getElementById('scoreBox');
+      scoreBox.style.display = "block";
+      document.getElementById('scoreHeader').innerText = `Final Score: ${score} / 100`;
+      document.getElementById('scoreLog').innerHTML = logs.map(l => `<p style="margin: 4px 0;">${l}</p>`).join('');
+    });
+  </script>
+</body>
+</html>
